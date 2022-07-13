@@ -53,7 +53,7 @@ const { ethers } = require("ethers");
 const initialNetwork = NETWORKS.localhost; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
 
 // 😬 Sorry for all the console logging
-const DEBUG = false;
+const DEBUG = true;
 const NETWORKCHECK = true;
 const USE_BURNER_WALLET = true; // toggle burner wallet feature
 const USE_NETWORK_SELECTOR = false;
@@ -170,12 +170,11 @@ function App(props) {
             id
             x
             y
-            tokenAmountToCollect
             healthAmountToCollect
             player {
               id
               address
-              fancyLoogieId
+              loogieId
               health
               token
             }
@@ -188,31 +187,31 @@ function App(props) {
 
   console.log("worldPlayerData: ", worldPlayerData);
 
-  const WORLD_TOKEN_GRAPHQL = `
-    {
-      worldMatrixes(
-        where: {tokenAmountToCollect_gt: 0}
-        ) {
-            id
-            x
-            y
-            tokenAmountToCollect
-            healthAmountToCollect
-            player {
-              id
-              address
-              fancyLoogieId
-              health
-              token
-            }
-      }
-    }
-  `;
+  // const WORLD_TOKEN_GRAPHQL = `
+  //   {
+  //     worldMatrixes(
+  //       where: {tokenAmountToCollect_gt: 0}
+  //       ) {
+  //           id
+  //           x
+  //           y
+  //           tokenAmountToCollect
+  //           healthAmountToCollect
+  //           player {
+  //             id
+  //             address
+  //             loogieId
+  //             health
+  //             token
+  //           }
+  //     }
+  //   }
+  // `;
 
-  const WORLD_TOKEN_GQL = gql(WORLD_TOKEN_GRAPHQL);
-  const worldTokenData = useQuery(WORLD_TOKEN_GQL, { pollInterval: 10000 });
+  // const WORLD_TOKEN_GQL = gql(WORLD_TOKEN_GRAPHQL);
+  // const worldTokenData = useQuery(WORLD_TOKEN_GQL, { pollInterval: 10000 });
 
-  console.log("worldTokenData: ", worldTokenData);
+  // console.log("worldTokenData: ", worldTokenData);
 
   const WORLD_HEALTH_GRAPHQL = `
     {
@@ -227,7 +226,7 @@ function App(props) {
             player {
               id
               address
-              fancyLoogieId
+              loogieId
               health
               token
             }
@@ -238,7 +237,7 @@ function App(props) {
   const WORLD_HEALTH_GQL = gql(WORLD_HEALTH_GRAPHQL);
   const worldHealthData = useQuery(WORLD_HEALTH_GQL, { pollInterval: 10000 });
 
-  console.log("worldHealthData: ", worldHealthData);
+  // console.log("worldHealthData: ", worldHealthData);
 
   const [yourLoogieBalance, setYourLoogieBalance] = useState(0);
   const [yourLoogies, setYourLoogies] = useState();
@@ -249,9 +248,9 @@ function App(props) {
   useEffect(() => {
     const updateBalances = async () => {
       if (DEBUG) console.log("Updating loogies balance...");
-      if (readContracts.FancyLoogie) {
-        const loogieNewBalance = await readContracts.FancyLoogie.balanceOf(address);
-        if (DEBUG) console.log("NFT: FancyLoogie - Balance: ", loogieNewBalance);
+      if (readContracts.Loogies) {
+        const loogieNewBalance = await readContracts.Loogies.balanceOf(address);
+        if (DEBUG) console.log("NFT: Loogies - Balance: ", loogieNewBalance);
         const yourLoogieNewBalance = loogieNewBalance && loogieNewBalance.toNumber && loogieNewBalance.toNumber();
         setYourLoogieBalance(yourLoogieNewBalance);
       } else {
@@ -259,7 +258,7 @@ function App(props) {
       }
     };
     updateBalances();
-  }, [address, readContracts.FancyLoogie]);
+  }, [address, readContracts.Loogies]);
 
   useEffect(() => {
     const updateYourLoogies = async () => {
@@ -267,11 +266,11 @@ function App(props) {
       const loogieUpdate = [];
       for (let tokenIndex = 0; tokenIndex < yourLoogieBalance; tokenIndex++) {
         try {
-          const tokenId = await readContracts.FancyLoogie.tokenOfOwnerByIndex(address, tokenIndex);
-          if (DEBUG) console.log("Getting FancyLoogie tokenId: ", tokenId);
-          const tokenURI = await readContracts.FancyLoogie.tokenURI(tokenId);
+          const tokenId = await readContracts.Loogies.tokenOfOwnerByIndex(address, tokenIndex);
+          if (DEBUG) console.log("Getting Loogies tokenId: ", tokenId);
+          const tokenURI = await readContracts.Loogies.tokenURI(tokenId);
           if (DEBUG) console.log("tokenURI: ", tokenURI);
-          const jsonManifestString = atob(tokenURI.substring(29));
+          const jsonManifestString = Buffer.from(tokenURI.substring(29), "base64");
 
           try {
             const jsonManifest = JSON.parse(jsonManifestString);
@@ -292,21 +291,44 @@ function App(props) {
       setLoadingLoogies(false);
     };
     updateYourLoogies();
-  }, [address, readContracts.FancyLoogie, yourLoogieBalance]);
+  }, [address, readContracts.Loogies, yourLoogieBalance]);
 
   const [activePlayer, setActivePlayer] = useState();
 
   useEffect(() => {
-    if (address && worldPlayerData.data) {
-      let active = false;
-      for (let p in worldPlayerData.data.worldMatrixes) {
-        if (worldPlayerData.data.worldMatrixes[p].player.address.toLowerCase() === address.toLowerCase()) {
-          active = true;
+    const updateActivePlayer = async () => {
+      if (DEBUG) console.log("Updating active player...");
+
+      if (readContracts.Game) {
+        try {
+          const players = await readContracts.Game.getPlayers();
+          if (DEBUG) console.log("players: ", players);
+          const activePlayer = players.find(player => {
+            console.log("🚀 ~ file: App.jsx ~ line 310 ~ updateActivePlayer ~ address", address);
+            console.log("🚀 ~ file: App.jsx ~ line 310 ~ updateActivePlayer ~ player.address", player);
+            return player === address;
+          });
+
+          if (DEBUG) console.log("activePlayer: ", activePlayer);
+          setActivePlayer(activePlayer);
+        } catch (error) {
+          console.log(error);
         }
+      } else {
+        if (DEBUG) console.log("Contracts readContracts.Game not defined yet.");
       }
-      setActivePlayer(active);
-    }
-  }, [address, worldPlayerData.data]);
+    };
+    updateActivePlayer();
+
+    // console.log("worldPlayerData: ", worldPlayerData.data?.worldMatrixes);
+    // if (address && worldPlayerData.data && worldPlayerData.data?.worldMatrixes) {
+    //   for (let p in worldPlayerData.data.worldMatrixes) {
+    //     if (worldPlayerData.data.worldMatrixes[p].player.address.toLowerCase() === address.toLowerCase()) {
+    //       active = true;
+    //     }
+    //   }
+    // }
+  }, [address, readContracts.Game, worldPlayerData.data]);
 
   const [playerData, setPlayerData] = useState();
 
@@ -314,29 +336,40 @@ function App(props) {
     const updatePlayersData = async () => {
       if (readContracts.Game) {
         console.log("PARSE PLAYERS:::", worldPlayerData);
-        let playerInfo = {};
-        const playersData = worldPlayerData.data.worldMatrixes;
-        for (let p in playersData) {
-          const currentPosition = playersData[p];
-          console.log("loading info for ", currentPosition);
-          const tokenURI = await readContracts.Game.tokenURIOf(currentPosition.player.address);
-          const jsonManifestString = atob(tokenURI.substring(29));
-          const jsonManifest = JSON.parse(jsonManifestString);
-          const info = {
-            health: parseInt(currentPosition.player.health),
-            position: { x: currentPosition.x, y: currentPosition.y },
-            //contract: await readContracts.Game.yourContract(worldPlayerData.data[p]),
-            image: jsonManifest.image,
-            gold: parseInt(currentPosition.player.token),
-            address: currentPosition.player.address,
-          };
-          playerInfo[currentPosition.player.address] = info;
-          if (address && currentPosition.player.address.toLowerCase() === address.toLowerCase()) {
-            setcurrentPlayer(info);
+        try {
+          let playerInfo = {};
+
+          if (worldPlayerData.data && worldPlayerData.data.worldMatrixes.length > 0) {
+            const playersData = worldPlayerData.data.worldMatrixes;
+            for (let p in playersData) {
+              const currentPosition = playersData[p];
+              console.log("loading info for ", currentPosition);
+              const tokenURI = await readContracts.Game.tokenURIOf(currentPosition.player.address);
+              const jsonManifestString = Buffer.from(tokenURI.substring(29), "base64");
+              const jsonManifest = JSON.parse(jsonManifestString);
+              const info = {
+                health: parseInt(currentPosition.player.health),
+                position: { x: currentPosition.x, y: currentPosition.y },
+                //contract: await readContracts.Game.yourContract(worldPlayerData.data[p]),
+                image: jsonManifest.image,
+                gold: parseInt(currentPosition.player.token),
+                address: currentPosition.player.address,
+              };
+              playerInfo[currentPosition.player.address] = info;
+              if (address && currentPosition.player.address.toLowerCase() === address.toLowerCase()) {
+                setcurrentPlayer(info);
+              }
+            }
+          } else {
+            console.log("No players data");
           }
+          console.log("final player info", playerInfo);
+          setPlayerData(playerInfo);
+        } catch (error) {
+          console.log(error);
         }
-        console.log("final player info", playerInfo);
-        setPlayerData(playerInfo);
+      } else {
+        console.log("Contracts not defined yet.");
       }
     };
     updatePlayersData();
@@ -378,19 +411,21 @@ function App(props) {
   const [worldView, setWorldView] = useState();
 
   useEffect(() => {
+    console.log("🚀 ~ file: App.jsx ~ line 472 ~ useEffect ~ playerData", playerData);
+
     console.log("rendering world...");
-    if (worldTokenData.data && worldHealthData.data) {
+    if (worldHealthData.data) {
       console.log("rendering world2...");
       let worldUpdate = [];
       for (let y = 0; y < height; y++) {
         for (let x = width - 1; x >= 0; x--) {
-          let goldHere = 0;
+          // let goldHere = 0;
           let healthHere = 0;
-          for (let d in worldTokenData.data.worldMatrixes) {
-            if (worldTokenData.data.worldMatrixes[d].x === x && worldTokenData.data.worldMatrixes[d].y === y) {
-              goldHere = parseInt(worldTokenData.data.worldMatrixes[d].tokenAmountToCollect);
-            }
-          }
+          // for (let d in worldTokenData.data.worldMatrixes) {
+          //   if (worldTokenData.data.worldMatrixes[d].x === x && worldTokenData.data.worldMatrixes[d].y === y) {
+          //     goldHere = parseInt(worldTokenData.data.worldMatrixes[d].tokenAmountToCollect);
+          //   }
+          // }
           for (let d in worldHealthData.data.worldMatrixes) {
             if (worldHealthData.data.worldMatrixes[d].x === x && worldHealthData.data.worldMatrixes[d].y === y) {
               healthHere = parseInt(worldHealthData.data.worldMatrixes[d].healthAmountToCollect);
@@ -399,21 +434,21 @@ function App(props) {
 
           let fieldDisplay = "";
 
-          if (goldHere > 0) {
-            fieldDisplay = (
-              <img
-                alt="LoogieCoins"
-                src="Gold_Full.svg"
-                style={{
-                  transform: "rotate(45deg) scale(1,3)",
-                  width: 60,
-                  height: 60,
-                  marginLeft: 15,
-                  marginTop: -45,
-                }}
-              />
-            );
-          }
+          // if (goldHere > 0) {
+          //   fieldDisplay = (
+          //     <img
+          //       alt="LoogieCoins"
+          //       src="Gold_Full.svg"
+          //       style={{
+          //         transform: "rotate(45deg) scale(1,3)",
+          //         width: 60,
+          //         height: 60,
+          //         marginLeft: 15,
+          //         marginTop: -45,
+          //       }}
+          //     />
+          //   );
+          // }
 
           if (healthHere > 0) {
             fieldDisplay = (
@@ -458,6 +493,7 @@ function App(props) {
 
           worldUpdate.push(
             <div
+              // key={`${x}-${y}`}
               style={{
                 width: squareW,
                 height: squareH,
@@ -477,7 +513,7 @@ function App(props) {
       }
       setWorldView(worldUpdate);
     }
-  }, [squareH, squareW, worldTokenData.data, worldHealthData.data, playerData]);
+  }, [squareH, squareW, worldHealthData.data, playerData]);
 
   /*
   const addressFromENS = useResolveName(mainnetProvider, "austingriffith.eth");
@@ -568,14 +604,14 @@ function App(props) {
         return <Address address={text} ensProvider={mainnetProvider} blockExplorer={blockExplorer} fontSize={14} />;
       },
     },
-    {
-      title: "LoogieCoins",
-      dataIndex: "gold",
-      align: "right",
-      render: (text, record) => {
-        return <span>{text}🏵</span>;
-      },
-    },
+    // {
+    //   title: "LoogieCoins",
+    //   dataIndex: "gold",
+    //   align: "right",
+    //   render: (text, record) => {
+    //     return <span>{text}🏵</span>;
+    //   },
+    // },
     {
       title: "Health",
       dataIndex: "health",
@@ -635,9 +671,7 @@ function App(props) {
                 </div>
               </div>
             )}
-            <div style={{ width: 400 }}>
-              <Joystick writeContracts={writeContracts} tx={tx} />
-            </div>
+            <div style={{ width: 400 }}>playing as {address}</div>
           </div>
         ) : (
           <div>
@@ -677,7 +711,7 @@ function App(props) {
                                 backgroundColor: "#b3e2f4",
                                 border: "1px solid #0071bb",
                                 borderRadius: 10,
-                                marginRight: 10
+                                marginRight: 10,
                               }}
                               headStyle={{ paddingRight: 12, paddingLeft: 12 }}
                               title={
@@ -685,7 +719,20 @@ function App(props) {
                                   <span style={{ fontSize: 16, marginRight: 8 }}>{item.name}</span>
                                   <Button
                                     onClick={async () => {
-                                      tx(writeContracts.Game.register(id));
+                                      tx(writeContracts.Game.register(id)).then(async () => {
+                                        if (DEBUG) console.log("Updating active player...");
+
+                                        try {
+                                          const players = await readContracts.Game.getPlayers();
+                                          if (DEBUG) console.log("players: ", players);
+                                          const activePlayer = players.find(player => player === address);
+
+                                          if (DEBUG) console.log("activePlayer: ", activePlayer);
+                                          setActivePlayer(activePlayer);
+                                        } catch (error) {
+                                          console.log(error);
+                                        }
+                                      });
                                     }}
                                   >
                                     Register
@@ -716,24 +763,62 @@ function App(props) {
                     title={
                       <div>
                         <span style={{ fontSize: 18, marginRight: 8, fontWeight: "bold" }}>
-                          Do you need some FancyLoogies?
+                          Do you need some Loogies?
                         </span>
                       </div>
                     }
                   >
                     <div>
                       <p>
-                        You can mint <strong>OptmisticLoogies</strong> and <strong>FancyLoogies</strong> at
+                        You can mint <strong>Loogies</strong> here
                       </p>
                       <p>
-                        <a
-                          style={{ fontSize: 22 }}
-                          href="https://www.fancyloogies.com"
-                          target="_blank"
-                          rel="noreferrer"
+                        <button
+                          onClick={async event => {
+                            try {
+                              // event.target.parentElement.disabled = true;
+                              const priceRightNow = await readContracts.Loogies.price();
+
+                              await tx(writeContracts.Loogies.mintItem({ value: priceRightNow }));
+
+                              setLoadingLoogies(true);
+                              const loogieUpdate = [];
+                              for (let tokenIndex = 0; tokenIndex < yourLoogieBalance; tokenIndex++) {
+                                try {
+                                  const tokenId = await readContracts.Loogies.tokenOfOwnerByIndex(address, tokenIndex);
+                                  if (DEBUG) console.log("Getting Loogies tokenId: ", tokenId);
+                                  const tokenURI = await readContracts.Loogies.tokenURI(tokenId);
+                                  if (DEBUG) console.log("tokenURI: ", tokenURI);
+                                  const jsonManifestString = Buffer.from(tokenURI.substring(29), "base64");
+
+                                  try {
+                                    const jsonManifest = JSON.parse(jsonManifestString);
+                                    loogieUpdate.push({
+                                      id: tokenId,
+                                      uri: tokenURI,
+                                      owner: address,
+                                      ...jsonManifest,
+                                    });
+                                  } catch (e) {
+                                    console.log(e);
+                                  }
+                                } catch (e) {
+                                  console.log(e);
+                                }
+                              }
+                              setYourLoogies(loogieUpdate.reverse());
+                            } catch (error) {
+                              console.log("🚀 ~ file: App.jsx ~ line 764 ~ App ~ error", error);
+                            }
+
+                            setLoadingLoogies(false);
+                          }}
+                          // href="javascript:void(0);"
+                          size="large"
+                          shape="round"
                         >
-                          www.fancyloogies.com
-                        </a>
+                          Mint
+                        </button>
                       </p>
                     </div>
                   </Card>
@@ -773,7 +858,7 @@ function App(props) {
             blockExplorer={blockExplorer}
             contractConfig={contractConfig}
           />
-          <Contract
+          {/* <Contract
             name="LoogieCoin"
             price={price}
             signer={userSigner}
@@ -781,7 +866,7 @@ function App(props) {
             address={address}
             blockExplorer={blockExplorer}
             contractConfig={contractConfig}
-          />
+          /> */}
         </Route>
         <Route path="/subgraph">
           <Subgraph

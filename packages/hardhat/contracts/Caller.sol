@@ -1,7 +1,6 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-
 import "./Game.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -25,9 +24,9 @@ contract Caller is Ownable {
         registry.move(direction);
     }
 
-    function collectTokens() public onlyOwner {
-        registry.collectTokens();
-    }
+    // function collectTokens() public onlyOwner {
+    //     registry.collectTokens();
+    // }
 
     function collectHealth() public onlyOwner {
         registry.collectHealth();

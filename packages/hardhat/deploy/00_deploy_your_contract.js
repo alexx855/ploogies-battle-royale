@@ -32,10 +32,24 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
     "0x37a76CFB334b62C0eAf8808Dc9B5Ff82bB246827";
    */
 
+  // Polygon
+  // const loogiesContractAddress = "";
+
   // optimism
-  const loogiesContractAddress = "0xbE7706DFA9Cc5aEEB5b26698C1bc5c43829E808A";
-  const loogieCoinContractAddress =
-    "0x83eD2eE1e2744D27Ffd949314f4098f13535292F";
+  let loogiesContractAddress = "0xbE7706DFA9Cc5aEEB5b26698C1bc5c43829E808A";
+  // let loogieCoinContractAddress = "0x83eD2eE1e2744D27Ffd949314f4098f13535292F";
+
+  if (chainId === localChainId) {
+    console.log(
+      `Attempting to deploy LoogiesMock.sol to network number ${chainId} from ${deployer.address}`
+    );
+
+    const loogiesContract = await deploy("Loogies", {
+      from: deployer,
+      log: true,
+    });
+    loogiesContractAddress = loogiesContract.address;
+  }
 
   console.log(
     `Attempting to deploy Game.sol to network number ${chainId} from ${deployer.address}`
@@ -44,7 +58,7 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
   const gameContract = await deploy("Game", {
     // Learn more about args here: https://www.npmjs.com/package/hardhat-deploy#deploymentsdeploy
     from: deployer,
-    args: [collectInterval, loogiesContractAddress, loogieCoinContractAddress],
+    args: [collectInterval, loogiesContractAddress],
     log: true,
   });
 
@@ -56,20 +70,22 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
 
   await GameContract.setDropOnCollect(true);
 
-  await GameContract.transferOwnership(
-    "0x5dCb5f4F39Caa6Ca25380cfc42280330b49d3c93"
-  );
+  // if (chainId === localChainId)
+  // await GameContract.transferOwnership(
+  //   "0x7323188a94F213b72883d94e8950Aad35Cb15CF7"
+  // );
 
   try {
-    await run("verify:verify", {
-      address: gameContract.address,
-      contract: "contracts/Game.sol:Game",
-      constructorArguments: [
-        collectInterval,
-        loogiesContractAddress,
-        loogieCoinContractAddress,
-      ],
-    });
+    if (chainId !== localChainId)
+      await run("verify:verify", {
+        address: gameContract.address,
+        contract: "contracts/Game.sol:Game",
+        constructorArguments: [
+          collectInterval,
+          loogiesContractAddress,
+          // loogieCoinContractAddress,
+        ],
+      });
   } catch (error) {
     console.error(error);
   }

@@ -10,8 +10,8 @@ import {
 import { WorldMatrix, Player } from "../generated/schema";
 
 export function handleRestart(event: Restart): void {
-  for (let i=0; i<event.params.width; i++) {
-    for (let j=0; j<event.params.height; j++) {
+  for (let i = 0; i < event.params.width; i++) {
+    for (let j = 0; j < event.params.height; j++) {
       const fieldId = i.toString() + "-" + j.toString();
       let field = WorldMatrix.load(fieldId);
       if (field === null) {
@@ -19,12 +19,12 @@ export function handleRestart(event: Restart): void {
         field.x = i;
         field.y = j;
         field.player = null;
-        field.tokenAmountToCollect = BigInt.fromI32(0);
+        // field.tokenAmountToCollect = BigInt.fromI32(0);
         field.healthAmountToCollect = BigInt.fromI32(0);
       } else {
         // clean player data
         field.player = null;
-        field.tokenAmountToCollect = BigInt.fromI32(0);
+        // field.tokenAmountToCollect = BigInt.fromI32(0);
         field.healthAmountToCollect = BigInt.fromI32(0);
       }
       field.save();
@@ -42,9 +42,9 @@ export function handleRegister(event: Register): void {
     player.address = event.params.txOrigin;
   }
 
-  player.fancyLoogieId = event.params.loogieId;
+  player.loogieId = event.params.loogieId;
   player.health = BigInt.fromI32(500);
-  player.token = BigInt.fromI32(0);
+  // player.token = BigInt.fromI32(0);
   player.x = event.params.x;
   player.y = event.params.y;
   player.createdAt = event.block.timestamp;
@@ -89,22 +89,22 @@ export function handleMove(event: Move): void {
   }
 }
 
-export function handleCollectedTokens(event: CollectedTokens): void {
-  let playerString = event.params.player.toHexString();
+// export function handleCollectedTokens(event: CollectedTokens): void {
+//   let playerString = event.params.player.toHexString();
 
-  let player = Player.load(playerString);
-  if (player !== null) {
-    player.token = player.token.plus(event.params.amount);
-    player.save();
+//   let player = Player.load(playerString);
+//   if (player !== null) {
+//     player.token = player.token.plus(event.params.amount);
+//     player.save();
 
-    const fieldId = player.x.toString() + "-" + player.y.toString();
-    let field = WorldMatrix.load(fieldId);
-    if (field !== null) {
-      field.tokenAmountToCollect = BigInt.fromI32(0);
-      field.save();
-    }
-  }
-}
+//     const fieldId = player.x.toString() + "-" + player.y.toString();
+//     let field = WorldMatrix.load(fieldId);
+//     if (field !== null) {
+//       // field.tokenAmountToCollect = BigInt.fromI32(0);
+//       field.save();
+//     }
+//   }
+// }
 
 export function handleCollectedHealth(event: CollectedHealth): void {
   let playerString = event.params.player.toHexString();
@@ -128,13 +128,15 @@ export function handleNewDrop(event: NewDrop): void {
   let field = WorldMatrix.load(fieldId);
   if (field !== null) {
     if (event.params.isHealth) {
-      field.healthAmountToCollect = field.healthAmountToCollect.plus(event.params.amount);
-    } else {
-      field.tokenAmountToCollect = field.tokenAmountToCollect.plus(event.params.amount);
+      field.healthAmountToCollect = field.healthAmountToCollect.plus(
+        event.params.amount
+      );
     }
+    // else {
+    //   field.tokenAmountToCollect = field.tokenAmountToCollect.plus(
+    //     event.params.amount
+    //   );
+    // }
     field.save();
   }
 }
-
-
-

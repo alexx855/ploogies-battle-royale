@@ -3,7 +3,6 @@ type WorldMatrix @entity {
   x: Int!
   y: Int!
   player: Player
-  tokenAmountToCollect: BigInt!
   healthAmountToCollect: BigInt!
 }
 
@@ -12,7 +11,7 @@ type Player @entity {
   x: Int!
   y: Int!
   address: Bytes!
-  fancyLoogieId: BigInt!
+  loogieId: BigInt!
   health: BigInt!
   token: BigInt!
   createdAt: BigInt!
