@@ -397,7 +397,7 @@ function App(props) {
                 <Tooltip title={player.address}>
                   <div style={{ position: "relative", height: "100%", width: "100%" }}>
                     {currentPlayer?.address && currentPlayer.address.toLowerCase() === player.address.toLowerCase() && (
-                      <Blockies address={player.address} />
+                      <Blockies address={player.address} size={8} scale={7.5} />
                     )}
 
                     {/* show player.health */}
