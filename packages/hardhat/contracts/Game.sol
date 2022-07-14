@@ -153,6 +153,8 @@ contract Game is Ownable {
 
         randomlyPlace();
 
+        dropHealth(10);
+
         emit Register(
             tx.origin,
             msg.sender,

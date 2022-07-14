@@ -213,8 +213,6 @@ function App(props) {
   const width = 24;
   const height = 24;
 
-  const [currentPlayer, setCurrentPlayer] = useState();
-
   const WORLD_PLAYER_GRAPHQL = `
     {
       worldMatrixes(
@@ -236,7 +234,7 @@ function App(props) {
   const WORLD_PLAYER_GQL = gql(WORLD_PLAYER_GRAPHQL);
   const worldPlayerData = useQuery(WORLD_PLAYER_GQL, { pollInterval: 10000 });
 
-  console.log("worldPlayerData: ", worldPlayerData);
+  // console.log("worldPlayerData: ", worldPlayerData);
 
   const WORLD_HEALTH_GRAPHQL = `
     {
@@ -260,7 +258,7 @@ function App(props) {
   const WORLD_HEALTH_GQL = gql(WORLD_HEALTH_GRAPHQL);
   const worldHealthData = useQuery(WORLD_HEALTH_GQL, { pollInterval: 2500 });
 
-  console.log("worldHealthData: ", worldHealthData);
+  // console.log("worldHealthData: ", worldHealthData);
 
   const [yourLoogiesBalance, setYourLoogiesBalance] = useState(0);
   const [yourLoogies, setYourLoogies] = useState();
@@ -288,22 +286,23 @@ function App(props) {
     }
   }, [address, readContracts]);
 
-  const [activePlayer, setActivePlayer] = useState();
+  // const [activePlayer, setActivePlayer] = useState();
 
-  useEffect(() => {
-    let active = false;
-    if (address && worldPlayerData.data && worldPlayerData.data?.worldMatrixes) {
-      for (let p in worldPlayerData.data.worldMatrixes) {
-        if (worldPlayerData.data.worldMatrixes[p].player.address.toLowerCase() === address.toLowerCase()) {
-          active = true;
-        }
-      }
-    }
+  // useEffect(() => {
+  //   let active = false;
+  //   if (address && worldPlayerData.data && worldPlayerData.data?.worldMatrixes) {
+  //     for (let p in worldPlayerData.data.worldMatrixes) {
+  //       if (worldPlayerData.data.worldMatrixes[p].player.address.toLowerCase() === address.toLowerCase()) {
+  //         active = true;
+  //       }
+  //     }
+  //   }
 
-    setActivePlayer(active);
-  }, [address, readContracts.Game, worldPlayerData.data]);
+  //   setActivePlayer(active);
+  // }, [address, readContracts.Game, worldPlayerData.data]);
 
   const [playerData, setPlayerData] = useState();
+  const [currentPlayer, setCurrentPlayer] = useState();
 
   useEffect(() => {
     const updatePlayersData = async () => {
@@ -364,13 +363,8 @@ function App(props) {
       let worldUpdate = [];
       for (let y = 0; y < height; y++) {
         for (let x = width - 1; x >= 0; x--) {
-          // let goldHere = 0;
           let healthHere = 0;
-          // for (let d in worldTokenData.data.worldMatrixes) {
-          //   if (worldTokenData.data.worldMatrixes[d].x === x && worldTokenData.data.worldMatrixes[d].y === y) {
-          //     goldHere = parseInt(worldTokenData.data.worldMatrixes[d].tokenAmountToCollect);
-          //   }
-          // }
+
           for (let d in worldHealthData.data.worldMatrixes) {
             if (worldHealthData.data.worldMatrixes[d].x === x && worldHealthData.data.worldMatrixes[d].y === y) {
               healthHere = parseInt(worldHealthData.data.worldMatrixes[d].healthAmountToCollect);
@@ -379,33 +373,15 @@ function App(props) {
 
           let fieldDisplay = "";
 
-          // if (goldHere > 0) {
-          //   fieldDisplay = (
-          //     <img
-          //       alt="LoogieCoins"
-          //       src="Gold_Full.svg"
-          //       style={{
-          //         transform: "rotate(45deg) scale(1,3)",
-          //         width: 60,
-          //         height: 60,
-          //         marginLeft: 15,
-          //         marginTop: -45,
-          //       }}
-          //     />
-          //   );
-          // }
-
           if (healthHere > 0) {
             fieldDisplay = (
               <img
                 alt="Health"
                 src="Health_Full.svg"
                 style={{
-                  transform: "rotate(45deg) scale(1,3)",
-                  width: 60,
-                  height: 60,
-                  marginLeft: 15,
-                  marginTop: -45,
+                  width: "100%",
+                  height: "100%",
+                  transform: "sacale(1.5)",
                 }}
               />
             );
@@ -418,12 +394,29 @@ function App(props) {
             if (playerData[p].position.x === x && playerData[p].position.y === y) {
               const player = playerData[p];
               playerDisplay = (
-                <div style={{ position: "relative", height: "100%", width: "100%" }}>
-                  <Tooltip title={player.address}>
-                    {activePlayer && address && address.toLowerCase() === player.address.toLowerCase() && (
-                      <Blockies address={player.address} size={8} scale={7.5} />
+                <Tooltip title={player.address}>
+                  <div style={{ position: "relative", height: "100%", width: "100%" }}>
+                    {currentPlayer?.address && currentPlayer.address.toLowerCase() === player.address.toLowerCase() && (
+                      <Blockies address={player.address} />
                     )}
 
+                    {/* show player.health */}
+                    <span
+                      style={{
+                        position: "absolute",
+                        bottom: 0,
+                        left: 0,
+                        textAlign: "center",
+                        width: "100%",
+                        fontSize: "1.5rem",
+                        color: "red",
+                        fontWeight: "bold",
+                        textShadow: "0 0 5px black",
+                        zIndex: 4,
+                      }}
+                    >
+                      {player.health}
+                    </span>
                     <img
                       alt={player.address}
                       src={player.image}
@@ -437,8 +430,8 @@ function App(props) {
                         zIndex: 3,
                       }}
                     />
-                  </Tooltip>
-                </div>
+                  </div>
+                </Tooltip>
               );
             }
           }
@@ -455,6 +448,7 @@ function App(props) {
                 position: "absolute",
                 left: squareW * x,
                 top: squareH * y,
+                overflow: "visible",
               }}
             >
               <div
@@ -466,7 +460,7 @@ function App(props) {
                 }}
               >
                 {playerDisplay ? playerDisplay : <span style={{ opacity: 0.4 }}>{"" + x + "," + y}</span>}
-                <div style={{ opacity: 0.7, position: "absolute", left: squareW / 2 - 10, top: 0 }}>{fieldDisplay}</div>
+                <div style={{ opacity: 0.7, position: "absolute", left: 0, top: 0 }}>{fieldDisplay}</div>
               </div>
             </div>,
           );
@@ -625,7 +619,7 @@ function App(props) {
 
         <Route exact path="/play">
           <div style={{ position: "absolute", right: 50, top: 150, width: 600, zIndex: 10 }}>
-            {!activePlayer && (
+            {!currentPlayer && (
               <div>
                 <div style={{ padding: 4 }}>
                   {loading || (yourLoogies && yourLoogies.length > 0) ? (
@@ -670,19 +664,20 @@ function App(props) {
                                       <span style={{ fontSize: 16, marginRight: 8 }}>{item.name}</span>
                                       <Button
                                         onClick={async () => {
+                                          setLoading(true);
                                           tx(writeContracts.Game.register(id)).then(async () => {
                                             if (DEBUG) console.log("Updating active player...");
 
-                                            try {
-                                              const players = await readContracts.Game.getPlayers();
-                                              if (DEBUG) console.log("players: ", players);
-                                              const activePlayer = players.find(player => player === address);
+                                            // try {
+                                            //   const players = await readContracts.Game.getPlayers();
+                                            //   if (DEBUG) console.log("players: ", players);
+                                            //   const activePlayer = players.find(player => player === address);
 
-                                              if (DEBUG) console.log("activePlayer: ", activePlayer);
-                                              setActivePlayer(activePlayer);
-                                            } catch (error) {
-                                              console.log(error);
-                                            }
+                                            //   if (DEBUG) console.log("activePlayer: ", activePlayer);
+                                            //   setActivePlayer(activePlayer);
+                                            // } catch (error) {
+                                            //   console.log(error);
+                                            // }
                                           });
                                         }}
                                       >
@@ -772,49 +767,65 @@ function App(props) {
               zIndex: 9,
             }}
           >
-            {/* close page button */}
-            <div
-              style={{
-                position: "absolute",
-                left: 10,
-                top: 10,
-                zIndex: 11,
-              }}
-              to="/"
-            >
-              <Button
-                title="LEFT"
-                onClick={async () => {
-                  tx(writeContracts.Game.move(2));
+            {currentPlayer && (
+              <div
+                style={{
+                  position: "absolute",
+                  left: 10,
+                  top: 10,
+                  zIndex: 11,
                 }}
+                to="/"
               >
-                LEFT
-              </Button>
-              <Button
-                title="RIGHT"
-                onClick={async () => {
-                  tx(writeContracts.Game.move(3));
-                }}
-              >
-                RIGHT
-              </Button>
-              <Button
-                title="UP"
-                onClick={async () => {
-                  tx(writeContracts.Game.move(0));
-                }}
-              >
-                UP
-              </Button>
-              <Button
-                title="DOWN"
-                onClick={async () => {
-                  tx(writeContracts.Game.move(1));
-                }}
-              >
-                DOWN
-              </Button>
-            </div>
+                <Button
+                  title="LEFT"
+                  disabled={!currentPlayer.health > 0}
+                  onClick={async () => {
+                    tx(writeContracts.Game.move(2));
+                  }}
+                >
+                  LEFT
+                </Button>
+                <Button
+                  title="RIGHT"
+                  disabled={!currentPlayer.health > 0}
+                  onClick={async () => {
+                    tx(writeContracts.Game.move(3));
+                  }}
+                >
+                  RIGHT
+                </Button>
+                <Button
+                  title="UP"
+                  disabled={!currentPlayer.health > 0}
+                  onClick={async () => {
+                    tx(writeContracts.Game.move(0));
+                  }}
+                >
+                  UP
+                </Button>
+                <Button
+                  title="DOWN"
+                  disabled={!currentPlayer.health > 0}
+                  onClick={async () => {
+                    tx(writeContracts.Game.move(1));
+                  }}
+                >
+                  DOWN
+                </Button>
+
+                <Button
+                  title="Collect Health"
+                  disabled={!currentPlayer.health > 0}
+                  style={{ marginLeft: 10 }}
+                  onClick={async () => {
+                    tx(writeContracts.Game.collectHealth());
+                  }}
+                >
+                  Collect Health
+                </Button>
+              </div>
+            )}
 
             <div
               style={{
