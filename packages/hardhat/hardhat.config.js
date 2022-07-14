@@ -67,11 +67,9 @@ module.exports = {
   networks: {
     localhost: {
       url: "http://localhost:8545",
-      /*      
-        notice no mnemonic here? it will just use account 0 of the hardhat node to deploy
-        (you can put in a mnemonic here to set the deployer locally)
-      
-      */
+      // accounts: {
+      //   mnemonic: mnemonic(),
+      // },
     },
     rinkeby: {
       url: "https://rinkeby.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad", // <---- YOUR INFURA ID! (or it won't work)
@@ -231,56 +229,56 @@ module.exports = {
       },
     },
     moonbeam: {
-      url: 'https://rpc.api.moonbeam.network',
+      url: "https://rpc.api.moonbeam.network",
       chainId: 1284,
       accounts: {
         mnemonic: mnemonic(),
       },
     },
     moonriver: {
-      url: 'https://rpc.api.moonriver.moonbeam.network',
+      url: "https://rpc.api.moonriver.moonbeam.network",
       chainId: 1285,
       accounts: {
         mnemonic: mnemonic(),
       },
     },
     moonbaseAlpha: {
-      url: 'https://rpc.api.moonbase.moonbeam.network',
+      url: "https://rpc.api.moonbase.moonbeam.network",
       chainId: 1287,
       accounts: {
         mnemonic: mnemonic(),
       },
     },
     moonbeamDevNode: {
-      url: 'http://127.0.0.1:9933',
+      url: "http://127.0.0.1:9933",
       chainId: 1281,
       accounts: {
         mnemonic: mnemonic(),
       },
     },
     godwoken: {
-      url: 'https://godwoken-testnet-v1.ckbapp.dev',
+      url: "https://godwoken-testnet-v1.ckbapp.dev",
       chainId: 71401,
       accounts: {
         mnemonic: mnemonic(),
       },
     },
     arbitrum: {
-      url: 'https://arb1.arbitrum.io/rpc',
+      url: "https://arb1.arbitrum.io/rpc",
       chainId: 42161,
       accounts: {
         mnemonic: mnemonic(),
       },
     },
     rinkebyArbitrum: {
-      url: 'https://rinkeby.arbitrum.io/rpc',
+      url: "https://rinkeby.arbitrum.io/rpc",
       chainId: 421611,
       accounts: {
         mnemonic: mnemonic(),
       },
     },
     devnetArbitrum: {
-      url: 'https://nitro-devnet.arbitrum.io/rpc',
+      url: "https://nitro-devnet.arbitrum.io/rpc",
       chainId: 421612,
       accounts: {
         mnemonic: mnemonic(),
@@ -290,7 +288,7 @@ module.exports = {
   solidity: {
     compilers: [
       {
-        version: "0.8.4",
+        version: "0.8.6",
         settings: {
           optimizer: {
             enabled: true,

@@ -17,6 +17,8 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
   const { deployer } = await getNamedAccounts();
   const chainId = await getChainId();
 
+  const collectInterval = 60; // 1 minute, block.timestamp is in UNIX seconds
+
   await deploy("YourContract", {
     // Learn more about args here: https://www.npmjs.com/package/hardhat-deploy#deploymentsdeploy
     from: deployer,
@@ -25,19 +27,66 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
     waitConfirmations: 5,
   });
 
-  // Getting a previously deployed contract
-  const YourContract = await ethers.getContract("YourContract", deployer);
-  /*  await YourContract.setPurpose("Hello");
-  
-    // To take ownership of yourContract using the ownable library uncomment next line and add the 
-    // address you want to be the owner. 
-    
-    await YourContract.transferOwnership(
-      "ADDRESS_HERE"
-    );
+  console.log(
+    `Attempting to deploy LoogiesMock.sol to network number ${chainId} from ${deployer.address}`
+  );
 
-    //const YourContract = await ethers.getContractAt('YourContract', "0xaAC799eC2d00C013f1F11c37E654e59B0429DF6A") //<-- if you want to instantiate a version of a contract at a specific address!
-  */
+  const loogiesContract = await deploy("Loogies", {
+    from: deployer,
+    log: true,
+  });
+  const loogiesContractAddress = loogiesContract.address;
+  // }
+
+  console.log(
+    `Attempting to deploy Game.sol to network number ${chainId} from ${deployer.address}`
+  );
+
+  const gameContract = await deploy("Game", {
+    // Learn more about args here: https://www.npmjs.com/package/hardhat-deploy#deploymentsdeploy
+    from: deployer,
+    args: [collectInterval, loogiesContractAddress],
+    log: true,
+  });
+
+  console.log(`Game contract deployed to ${gameContract.address}`);
+
+  const GameContract = await ethers.getContract("Game", deployer);
+
+  await GameContract.start();
+
+  await GameContract.setDropOnCollect(true);
+
+  // if (chainId === localChainId)
+  // await GameContract.transferOwnership(
+  //   "0x7323188a94F213b72883d94e8950Aad35Cb15CF7"
+  // );
+
+  try {
+    if (chainId !== localChainId)
+      await run("verify:verify", {
+        address: gameContract.address,
+        contract: "contracts/Game.sol:Game",
+        constructorArguments: [
+          collectInterval,
+          loogiesContractAddress,
+          // loogieCoinContractAddress,
+        ],
+      });
+  } catch (error) {
+    console.error(error);
+  }
+
+  // Getting a previously deployed contract
+  // const YourContract = await ethers.getContract("YourContract", deployer);
+  // /*  await YourContract.setPurpose("Hello");
+
+  //   To take ownership of yourContract using the ownable library uncomment next line and add the
+  //   address you want to be the owner.
+  //   // await yourContract.transferOwnership(YOUR_ADDRESS_HERE);
+
+  //   //const yourContract = await ethers.getContractAt('YourContract', "0xaAC799eC2d00C013f1F11c37E654e59B0429DF6A") //<-- if you want to instantiate a version of a contract at a specific address!
+  // */
 
   /*
   //If you want to send value to an address from the deployer

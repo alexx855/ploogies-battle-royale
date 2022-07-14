@@ -26,44 +26,41 @@ function Subgraph(props) {
 
   const EXAMPLE_GRAPHQL = `
   {
-    purposes(first: 25, orderBy: createdAt, orderDirection: desc) {
-      id
-      purpose
-      createdAt
-      sender {
-        id
-      }
-    }
-    senders {
-      id
-      address
-      purposeCount
-    }
+    players{
+            id,
+            x,
+            y,
+            loogieId,
+            health
+          }
   }
   `;
+
   const EXAMPLE_GQL = gql(EXAMPLE_GRAPHQL);
   const { loading, data } = useQuery(EXAMPLE_GQL, { pollInterval: 2500 });
 
-  const purposeColumns = [
+  const playersColumns = [
     {
-      title: "Purpose",
-      dataIndex: "purpose",
-      key: "purpose",
-    },
-    {
-      title: "Sender",
+      title: "id",
       key: "id",
-      render: record => <Address value={record.sender.id} ensProvider={props.mainnetProvider} fontSize={16} />,
+      render: record => <Address value={record.id} ensProvider={props.mainnetProvider} fontSize={16} />,
     },
     {
-      title: "createdAt",
-      key: "createdAt",
-      dataIndex: "createdAt",
-      render: d => new Date(d * 1000).toISOString(),
+      title: "x",
+      dataIndex: "x",
+      key: "x",
+    },
+    {
+      title: "y",
+      dataIndex: "y",
+      key: "y",
+    },
+    {
+      title: "health",
+      dataIndex: "health",
+      key: "health",
     },
   ];
-
-  const [newPurpose, setNewPurpose] = useState("loading...");
 
   const deployWarning = (
     <div style={{ marginTop: 8, padding: 8 }}>Warning: 🤔 Have you deployed your subgraph yet?</div>
@@ -161,26 +158,9 @@ function Subgraph(props) {
         </span>
       </div>
 
-      <div style={{ width: 780, margin: "auto", paddingBottom: 64 }}>
-        <div style={{ margin: 32, textAlign: "right" }}>
-          <Input
-            onChange={e => {
-              setNewPurpose(e.target.value);
-            }}
-          />
-          <Button
-            onClick={() => {
-              console.log("newPurpose", newPurpose);
-              /* look how you call setPurpose on your contract: */
-              props.tx(props.writeContracts.YourContract.setPurpose(newPurpose));
-            }}
-          >
-            Set Purpose
-          </Button>
-        </div>
-
+      <div style={{ width: "100%", paddingBottom: 64 }}>
         {data ? (
-          <Table dataSource={data.purposes} columns={purposeColumns} rowKey="id" />
+          <Table dataSource={data.players} columns={playersColumns} rowKey="id" />
         ) : (
           <Typography>{loading ? "Loading..." : deployWarning}</Typography>
         )}

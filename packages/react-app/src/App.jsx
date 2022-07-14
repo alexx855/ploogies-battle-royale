@@ -1,4 +1,5 @@
-import { Button, Col, Menu, Row } from "antd";
+import { Button, Col, Row, Card, List, Menu, Tooltip } from "antd";
+import Blockies from "react-blockies";
 import "antd/dist/antd.css";
 import {
   useBalance,
@@ -31,6 +32,44 @@ import deployedContracts from "./contracts/hardhat_contracts.json";
 import { Transactor, Web3ModalSetup } from "./helpers";
 import { Home, ExampleUI, Hints, Subgraph } from "./views";
 import { useStaticJsonRPC } from "./hooks";
+import { gql, useQuery } from "@apollo/client";
+
+const fetchLoogies = async (address, readContracts) => {
+  const loogies = [];
+  let loogiesBalance = 0;
+
+  try {
+    let lbalance = await readContracts.Loogies.balanceOf(address);
+
+    // PLOOG owned by user address
+    if (lbalance && lbalance.toNumber) {
+      loogiesBalance += lbalance.toNumber();
+    }
+
+    for (let tokenIndex = 0; tokenIndex < lbalance.toNumber(); tokenIndex++) {
+      const tokenId = await readContracts.Loogies.tokenOfOwnerByIndex(address, tokenIndex);
+      // if (DEBUG) console.log("Getting loogie tokenId: ", tokenId);
+      const tokenURI = await readContracts.Loogies.tokenURI(tokenId);
+      // if (DEBUG) console.log("tokenURI: ", tokenURI);
+      // const jsonManifestString = atob(tokenURI.substring(29));
+      const jsonManifestString = Buffer.from(tokenURI.substring(29), "base64");
+
+      const jsonManifest = JSON.parse(jsonManifestString);
+      loogies.push({
+        id: tokenId,
+        symbol: "PLOOG",
+        uri: tokenURI,
+        playing: false,
+        owner: address,
+        ...jsonManifest,
+      });
+    }
+  } catch (error) {
+    console.log("Error getting loogies balance: ", error);
+  }
+
+  return { loogies, loogiesBalance };
+};
 
 const { ethers } = require("ethers");
 /*
@@ -157,17 +196,285 @@ function App(props) {
   const mainnetContracts = useContractLoader(mainnetProvider, contractConfig);
 
   // If you want to call a function on a new block
-  useOnBlock(mainnetProvider, () => {
-    console.log(`⛓ A new mainnet block is here: ${mainnetProvider._lastBlockNumber}`);
-  });
+  // useOnBlock(localProvider, () => {
+  //   console.log(`⛓ A new block is here: ${localProvider._lastBlockNumber}`);
+  //   setGameBlock(localProvider._lastBlockNumber);
+  // });
 
   // Then read your DAI balance like:
   const myMainnetDAIBalance = useContractReader(mainnetContracts, "DAI", "balanceOf", [
     "0x34aA3F359A9D614239015126635CE7732c18fDF3",
   ]);
 
+  const { gameBlock, setGameBlock } = useState(10);
+
   // keep track of a variable from the contract in the local React state:
   const purpose = useContractReader(readContracts, "YourContract", "purpose");
+  const width = 24;
+  const height = 24;
+
+  const [currentPlayer, setCurrentPlayer] = useState();
+
+  const WORLD_PLAYER_GRAPHQL = `
+    {
+      worldMatrixes(
+        where: {player_not: null}
+        ) {
+            id
+            x
+            y
+            healthAmountToCollect
+            player {
+              id
+              address
+              loogieId
+              health
+            }
+      }
+    }
+  `;
+  const WORLD_PLAYER_GQL = gql(WORLD_PLAYER_GRAPHQL);
+  const worldPlayerData = useQuery(WORLD_PLAYER_GQL, { pollInterval: 10000 });
+
+  console.log("worldPlayerData: ", worldPlayerData);
+
+  const WORLD_HEALTH_GRAPHQL = `
+    {
+      worldMatrixes(
+        where: {healthAmountToCollect_gt: 0}
+        ) {
+            id
+            x
+            y
+            healthAmountToCollect
+            player {
+              id
+              address
+              loogieId
+              health
+            }
+      }
+    }
+  `;
+
+  const WORLD_HEALTH_GQL = gql(WORLD_HEALTH_GRAPHQL);
+  const worldHealthData = useQuery(WORLD_HEALTH_GQL, { pollInterval: 2500 });
+
+  console.log("worldHealthData: ", worldHealthData);
+
+  const [yourLoogiesBalance, setYourLoogiesBalance] = useState(0);
+  const [yourLoogies, setYourLoogies] = useState();
+
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const perPage = 1;
+
+  // Update user nfts
+  useEffect(() => {
+    //  loogies
+    if (DEBUG) console.log("Updating loogies balance...");
+
+    if (readContracts.Loogies) {
+      async function fetchData() {
+        // You can await here
+        const { loogies, loogiesBalance } = await fetchLoogies(address, readContracts);
+        setYourLoogies(loogies.reverse());
+        setYourLoogiesBalance(loogiesBalance);
+        setLoading(false);
+      }
+      fetchData();
+    } else {
+      if (DEBUG) console.log("Loogies contracts not defined yet.");
+    }
+  }, [address, readContracts]);
+
+  const [activePlayer, setActivePlayer] = useState();
+
+  useEffect(() => {
+    let active = false;
+    if (address && worldPlayerData.data && worldPlayerData.data?.worldMatrixes) {
+      for (let p in worldPlayerData.data.worldMatrixes) {
+        if (worldPlayerData.data.worldMatrixes[p].player.address.toLowerCase() === address.toLowerCase()) {
+          active = true;
+        }
+      }
+    }
+
+    setActivePlayer(active);
+  }, [address, readContracts.Game, worldPlayerData.data]);
+
+  const [playerData, setPlayerData] = useState();
+
+  useEffect(() => {
+    const updatePlayersData = async () => {
+      if (readContracts.Game) {
+        console.log("PARSE PLAYERS:::", worldPlayerData);
+        try {
+          let playerData = {};
+
+          if (worldPlayerData.data && worldPlayerData.data.worldMatrixes?.length > 0) {
+            const playersData = worldPlayerData.data.worldMatrixes;
+            for (let p in playersData) {
+              const currentPosition = playersData[p];
+              console.log("loading info for ", currentPosition);
+              const tokenURI = await readContracts.Game.tokenURIOf(currentPosition.player.address);
+              const jsonManifestString = Buffer.from(tokenURI.substring(29), "base64");
+              const jsonManifest = JSON.parse(jsonManifestString);
+              const info = {
+                health: parseInt(currentPosition.player.health),
+                position: { x: currentPosition.x, y: currentPosition.y },
+                //contract: await readContracts.Game.yourContract(worldPlayerData.data[p]),
+                image: jsonManifest.image,
+                gold: parseInt(currentPosition.player.token),
+                address: currentPosition.player.address,
+              };
+              playerData[currentPosition.player.address] = info;
+              if (address && currentPosition.player.address.toLowerCase() === address.toLowerCase()) {
+                setCurrentPlayer(info);
+              }
+            }
+          } else {
+            console.log("No players data");
+          }
+          console.log("final player info", playerData);
+          setPlayerData(playerData);
+        } catch (error) {
+          console.log(error);
+        }
+      } else {
+        console.log("Contracts not defined yet.");
+      }
+    };
+    updatePlayersData();
+  }, [address, worldPlayerData, readContracts.Game]);
+
+  const s = 64;
+  const squareW = s;
+  const squareH = s;
+
+  const [worldView, setWorldView] = useState();
+
+  useEffect(() => {
+    console.log("🚀 ~ file: App.jsx ~ line 472 ~ useEffect ~ playerData", playerData);
+
+    console.log("rendering world...");
+    if (worldHealthData.data) {
+      console.log("🚀 ~ file: App.jsx ~ line 371 ~ useEffect ~ worldHealthData.data", worldHealthData.data);
+      console.log("rendering world2...");
+      let worldUpdate = [];
+      for (let y = 0; y < height; y++) {
+        for (let x = width - 1; x >= 0; x--) {
+          // let goldHere = 0;
+          let healthHere = 0;
+          // for (let d in worldTokenData.data.worldMatrixes) {
+          //   if (worldTokenData.data.worldMatrixes[d].x === x && worldTokenData.data.worldMatrixes[d].y === y) {
+          //     goldHere = parseInt(worldTokenData.data.worldMatrixes[d].tokenAmountToCollect);
+          //   }
+          // }
+          for (let d in worldHealthData.data.worldMatrixes) {
+            if (worldHealthData.data.worldMatrixes[d].x === x && worldHealthData.data.worldMatrixes[d].y === y) {
+              healthHere = parseInt(worldHealthData.data.worldMatrixes[d].healthAmountToCollect);
+            }
+          }
+
+          let fieldDisplay = "";
+
+          // if (goldHere > 0) {
+          //   fieldDisplay = (
+          //     <img
+          //       alt="LoogieCoins"
+          //       src="Gold_Full.svg"
+          //       style={{
+          //         transform: "rotate(45deg) scale(1,3)",
+          //         width: 60,
+          //         height: 60,
+          //         marginLeft: 15,
+          //         marginTop: -45,
+          //       }}
+          //     />
+          //   );
+          // }
+
+          if (healthHere > 0) {
+            fieldDisplay = (
+              <img
+                alt="Health"
+                src="Health_Full.svg"
+                style={{
+                  transform: "rotate(45deg) scale(1,3)",
+                  width: 60,
+                  height: 60,
+                  marginLeft: 15,
+                  marginTop: -45,
+                }}
+              />
+            );
+          }
+
+          //look for players here...
+          let playerDisplay = "";
+
+          for (let p in playerData) {
+            if (playerData[p].position.x === x && playerData[p].position.y === y) {
+              const player = playerData[p];
+              playerDisplay = (
+                <div style={{ position: "relative", height: "100%", width: "100%" }}>
+                  <Tooltip title={player.address}>
+                    {activePlayer && address && address.toLowerCase() === player.address.toLowerCase() && (
+                      <Blockies address={player.address} size={8} scale={7.5} />
+                    )}
+
+                    <img
+                      alt={player.address}
+                      src={player.image}
+                      style={{
+                        transform: "scale(3, 3)",
+                        width: "100%",
+                        height: "100%",
+                        top: -20,
+                        position: "absolute",
+                        left: 0,
+                        zIndex: 3,
+                      }}
+                    />
+                  </Tooltip>
+                </div>
+              );
+            }
+          }
+
+          console.log("🚀 ~ file: App.jsx ~ line 447 ~ useEffect ~ currentPlayer", currentPlayer);
+
+          worldUpdate.push(
+            <div
+              key={`${x}-${y}`}
+              style={{
+                width: squareW,
+                height: squareH,
+                padding: 1,
+                position: "absolute",
+                left: squareW * x,
+                top: squareH * y,
+              }}
+            >
+              <div
+                style={{
+                  position: "relative",
+                  height: "100%",
+                  width: "100%",
+                  background: (x + y) % 2 ? "#BBBBBB" : "#EEEEEE",
+                }}
+              >
+                {playerDisplay ? playerDisplay : <span style={{ opacity: 0.4 }}>{"" + x + "," + y}</span>}
+                <div style={{ opacity: 0.7, position: "absolute", left: squareW / 2 - 10, top: 0 }}>{fieldDisplay}</div>
+              </div>
+            </div>,
+          );
+        }
+      }
+      setWorldView(worldUpdate);
+    }
+  }, [squareH, squareW, worldHealthData.data, playerData, currentPlayer]);
 
   /*
   const addressFromENS = useResolveName(mainnetProvider, "austingriffith.eth");
@@ -290,6 +597,9 @@ function App(props) {
         <Menu.Item key="/">
           <Link to="/">App Home</Link>
         </Menu.Item>
+        <Menu.Item key="/play">
+          <Link to="/play">Play</Link>
+        </Menu.Item>
         <Menu.Item key="/debug">
           <Link to="/debug">Debug Contracts</Link>
         </Menu.Item>
@@ -312,6 +622,244 @@ function App(props) {
           {/* pass in any web3 props to this Home component. For example, yourLocalBalance */}
           <Home yourLocalBalance={yourLocalBalance} readContracts={readContracts} />
         </Route>
+
+        <Route exact path="/play">
+          <div style={{ position: "absolute", right: 50, top: 150, width: 600, zIndex: 10 }}>
+            {!activePlayer && (
+              <div>
+                <div style={{ padding: 4 }}>
+                  {loading || (yourLoogies && yourLoogies.length > 0) ? (
+                    <div id="your-loogies" style={{ paddingTop: 20 }}>
+                      <div>
+                        <List
+                          grid={{
+                            gutter: 1,
+                            xs: 1,
+                            sm: 1,
+                            md: 1,
+                            lg: 1,
+                            xl: 1,
+                            xxl: 1,
+                          }}
+                          pagination={{
+                            total: yourLoogiesBalance,
+                            defaultPageSize: perPage,
+                            defaultCurrent: page,
+                            onChange: currentPage => {
+                              setPage(currentPage);
+                            },
+                            showTotal: (total, range) => `${range[0]}-${range[1]} of ${yourLoogiesBalance} items`,
+                          }}
+                          loading={loading}
+                          dataSource={yourLoogies}
+                          renderItem={item => {
+                            const id = item.id.toNumber();
+
+                            return (
+                              <List.Item key={id + "_" + item.uri + "_" + item.owner}>
+                                <Card
+                                  style={{
+                                    backgroundColor: "#b3e2f4",
+                                    border: "1px solid #0071bb",
+                                    borderRadius: 10,
+                                    marginRight: 10,
+                                  }}
+                                  headStyle={{ paddingRight: 12, paddingLeft: 12 }}
+                                  title={
+                                    <div>
+                                      <span style={{ fontSize: 16, marginRight: 8 }}>{item.name}</span>
+                                      <Button
+                                        onClick={async () => {
+                                          tx(writeContracts.Game.register(id)).then(async () => {
+                                            if (DEBUG) console.log("Updating active player...");
+
+                                            try {
+                                              const players = await readContracts.Game.getPlayers();
+                                              if (DEBUG) console.log("players: ", players);
+                                              const activePlayer = players.find(player => player === address);
+
+                                              if (DEBUG) console.log("activePlayer: ", activePlayer);
+                                              setActivePlayer(activePlayer);
+                                            } catch (error) {
+                                              console.log(error);
+                                            }
+                                          });
+                                        }}
+                                      >
+                                        Register
+                                      </Button>
+                                    </div>
+                                  }
+                                >
+                                  <img alt={item.id} src={item.image} width="240" />
+                                </Card>
+                              </List.Item>
+                            );
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ minHeight: 200, fontSize: 30 }}>
+                      <Card
+                        style={{
+                          backgroundColor: "#b3e2f4",
+                          border: "1px solid #0071bb",
+                          borderRadius: 10,
+                          width: 600,
+                          margin: "0 auto",
+                          textAlign: "center",
+                          fontSize: 16,
+                        }}
+                        title={
+                          <div>
+                            <span style={{ fontSize: 18, marginRight: 8, fontWeight: "bold" }}>
+                              Do you need some Loogies?
+                            </span>
+                          </div>
+                        }
+                      >
+                        <div>
+                          <p>
+                            You can mint a <strong>Loogie</strong> here
+                          </p>
+                          <p>
+                            <button
+                              onClick={async event => {
+                                // event.target.parentElement.disabled = true;
+                                const priceRightNow = await readContracts.Loogies.price();
+
+                                // console.log(priceRightNow);
+                                setLoading(true);
+
+                                tx(writeContracts.Loogies.mintItem({ value: priceRightNow }), async function () {
+                                  try {
+                                    const { loogies, loogiesBalance } = await fetchLoogies(address, readContracts);
+                                    setYourLoogies(loogies.reverse());
+                                    setYourLoogiesBalance(loogiesBalance);
+                                  } catch (error) {
+                                    console.log("🚀 ~ file: App.jsx ~ line 794 ~ error", error);
+                                  }
+
+                                  setLoading(false);
+                                });
+                              }}
+                              // href="javascript:void(0);"
+                              size="large"
+                              shape="round"
+                            >
+                              Mint
+                            </button>
+                          </p>
+                        </div>
+                      </Card>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div
+            style={{
+              position: "absolute",
+              background: "rgba(0,0,0,0.5)",
+              right: 0,
+              top: 0,
+              width: "100vw",
+              height: "100vh",
+              overflow: "hidden",
+              zIndex: 9,
+            }}
+          >
+            {/* close page button */}
+            <div
+              style={{
+                position: "absolute",
+                left: 10,
+                top: 10,
+                zIndex: 11,
+              }}
+              to="/"
+            >
+              <Button
+                title="LEFT"
+                onClick={async () => {
+                  tx(writeContracts.Game.move(2));
+                }}
+              >
+                LEFT
+              </Button>
+              <Button
+                title="RIGHT"
+                onClick={async () => {
+                  tx(writeContracts.Game.move(3));
+                }}
+              >
+                RIGHT
+              </Button>
+              <Button
+                title="UP"
+                onClick={async () => {
+                  tx(writeContracts.Game.move(0));
+                }}
+              >
+                UP
+              </Button>
+              <Button
+                title="DOWN"
+                onClick={async () => {
+                  tx(writeContracts.Game.move(1));
+                }}
+              >
+                DOWN
+              </Button>
+            </div>
+
+            <div
+              style={{
+                position: "absolute",
+                right: 10,
+                textAlign: "right",
+                top: 10,
+                zIndex: 11,
+              }}
+              to="/"
+            >
+              Game block <strong>{gameBlock}</strong>{" "}
+              <Link
+                style={{
+                  background: "rgba(0,0,0,0.5)",
+                  padding: 10,
+                  marginLeft: 10,
+                }}
+                to="/"
+              >
+                Close
+              </Link>
+            </div>
+
+            <div
+              style={{
+                transform: "scale(0.6,0.6)",
+                // transform: "rotate(-45deg) scale(0.4,0.4)",
+                color: "#111111",
+                fontWeight: "bold",
+                width: width * squareW,
+                height: height * squareH,
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                marginTop: (-height * squareH) / 2,
+                marginLeft: (-width * squareW) / 2,
+                backgroundColor: "#b3e2f4",
+              }}
+            >
+              {worldView}
+            </div>
+          </div>
+        </Route>
+
         <Route exact path="/debug">
           {/*
                 🎛 this scaffolding is full of commonly used components
@@ -319,6 +867,24 @@ function App(props) {
                 and give you a form to interact with it locally
             */}
 
+          <Contract
+            name="Game"
+            price={price}
+            signer={userSigner}
+            provider={localProvider}
+            address={address}
+            blockExplorer={blockExplorer}
+            contractConfig={contractConfig}
+          />
+          <Contract
+            name="Loogies"
+            price={price}
+            signer={userSigner}
+            provider={localProvider}
+            address={address}
+            blockExplorer={blockExplorer}
+            contractConfig={contractConfig}
+          />
           <Contract
             name="YourContract"
             price={price}
