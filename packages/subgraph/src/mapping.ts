@@ -6,9 +6,15 @@ import {
   CollectedHealth,
   NewDrop,
 } from "../generated/Game/Game";
-import { WorldMatrix, Player } from "../generated/schema";
+import { WorldMatrix, Player, Game } from "../generated/schema";
 
 export function handleRestart(event: Restart): void {
+  const GAME_ID = "1";
+  let game = Game.load(GAME_ID);
+  if (game === null) {
+    game = new Game(GAME_ID);
+  }
+
   for (let i = 0; i < event.params.width; i++) {
     for (let j = 0; j < event.params.height; j++) {
       const fieldId = i.toString() + "-" + j.toString();
@@ -17,15 +23,10 @@ export function handleRestart(event: Restart): void {
         field = new WorldMatrix(fieldId);
         field.x = i;
         field.y = j;
-        field.player = null;
-        // field.tokenAmountToCollect = BigInt.fromI32(0);
-        field.healthAmountToCollect = BigInt.fromI32(0);
-      } else {
-        // clean player data
-        field.player = null;
-        // field.tokenAmountToCollect = BigInt.fromI32(0);
-        field.healthAmountToCollect = BigInt.fromI32(0);
       }
+      field.cursed = false;
+      field.player = null;
+      field.healthAmountToCollect = BigInt.fromI32(0);
       field.save();
     }
   }

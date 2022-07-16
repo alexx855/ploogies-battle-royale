@@ -30,7 +30,8 @@ function Subgraph(props) {
       id
       x
       y
-      healthAmountToCollect
+      healthAmountToCollect,
+      cursed
       player {
         id
         address
@@ -45,30 +46,44 @@ function Subgraph(props) {
   const { loading, data } = useQuery(EXAMPLE_GQL, { pollInterval: 2500 });
 
   const exampleColumns = [
-    // {
-    //   title: "id",
-    //   key: "id",
-    //   render: record => <Address value={record.id} ensProvider={props.mainnetProvider} fontSize={16} />,
-    // },
     {
-      title: "x",
-      dataIndex: "x",
-      key: "x",
+      title: "id",
+      dataIndex: "id",
+      key: "id",
+      // render: record => {
+      //   console.log("🚀 ~ file: Subgraph.jsx ~ line 54 ~ Subgraph ~ record", record);
+      //   return `${record.x}-${record.y}`;
+      // },
     },
     {
-      title: "y",
-      dataIndex: "y",
-      key: "y",
+      title: "cursed",
+      dataIndex: "cursed",
+      key: "cursed",
+      render: record => {
+        console.log("🚀 ~ file: Subgraph.jsx ~ line 54 ~ Subgraph ~ record", record);
+        return `${record}`;
+      },
     },
     {
-      title: "health",
-      dataIndex: "health",
-      key: "health",
+      title: "health to collect",
+      dataIndex: "healthAmountToCollect",
+      key: "healthAmountToCollect",
     },
     {
-      title: "players",
-      dataIndex: "players",
-      key: "players",
+      title: "player",
+      dataIndex: "player",
+      key: "playerAddress",
+      render: record =>
+        record ? <Address value={record.address} ensProvider={props.mainnetProvider} fontSize={16} /> : null,
+    },
+    {
+      title: "player health",
+      dataIndex: "player",
+      key: "playerHealth",
+      render: record => {
+        console.log("🚀 ~ file: Subgraph.jsx ~ line 84 ~ Subgraph ~ record", record);
+        return record ? parseInt(record.health, 10) : null;
+      },
     },
   ];
 

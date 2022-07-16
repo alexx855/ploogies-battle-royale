@@ -17,8 +17,6 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
   const { deployer } = await getNamedAccounts();
   const chainId = await getChainId();
 
-  const collectInterval = 60; // 1 minute, block.timestamp is in UNIX seconds
-
   await deploy("YourContract", {
     // Learn more about args here: https://www.npmjs.com/package/hardhat-deploy#deploymentsdeploy
     from: deployer,
@@ -45,7 +43,7 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
   const gameContract = await deploy("Game", {
     // Learn more about args here: https://www.npmjs.com/package/hardhat-deploy#deploymentsdeploy
     from: deployer,
-    args: [collectInterval, loogiesContractAddress],
+    args: [loogiesContractAddress],
     log: true,
   });
 
@@ -68,7 +66,6 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
         address: gameContract.address,
         contract: "contracts/Game.sol:Game",
         constructorArguments: [
-          collectInterval,
           loogiesContractAddress,
           // loogieCoinContractAddress,
         ],

@@ -1,9 +1,21 @@
+type Game @entity {
+  id: ID!
+  height: Int!
+  width: Int!
+  restartBlockNumber: Int!
+  blockNumber: Int!
+  gameOn: Boolean!
+  players: [Player!]
+  worldMatrixes: [WorldMatrix!]
+}
+
 type WorldMatrix @entity {
   id: ID!
   x: Int!
   y: Int!
   player: Player
   healthAmountToCollect: BigInt!
+  cursed: Boolean!
 }
 
 type Player @entity {

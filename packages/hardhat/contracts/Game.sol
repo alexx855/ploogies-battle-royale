@@ -48,41 +48,52 @@ contract Game is Ownable {
     }
 
     LoogiesContract public loogiesContract;
-    // LoogieCoinContract public loogieCoin;
 
     bool public gameOn;
-    uint256 public actionInterval;
 
     uint8 public constant width = 6;
     uint8 public constant height = 6;
     Field[width][height] public worldMatrix;
 
+    // spanwPoints on corners
+    uint8 public constant spawnPointsCount = 4;
+    Position[spawnPointsCount] public spawnPoints;
+
     mapping(address => address) public yourContract;
     mapping(address => Position) public yourPosition;
     mapping(address => uint256) public health;
-    mapping(address => uint256) public lastActionAttempt;
+    mapping(address => uint256) public lastAction;
     mapping(address => uint256) public loogies;
     address[] public players;
 
     uint256 public restartBlockNumber;
+    uint256 public currentBlockNumber;
+    // uint256 public currentBlockNumber = block.number;
     bool public dropOnCollect;
     uint8 public attritionDivider = 50;
 
-    constructor(uint256 _actionInterval, address _loogiesContractAddress) {
-        actionInterval = _actionInterval;
+    constructor(address _loogiesContractAddress) {
         loogiesContract = LoogiesContract(_loogiesContractAddress);
-        // loogieCoin = LoogieCoinContract(_loogieCoinContractAddress);
-        restartBlockNumber = block.number;
+
+        // set spawn points
+        for (uint8 i = 0; i < spawnPointsCount; i++) {
+            spawnPoints[i].x = i % 2 == 0 ? 0 : width - 1;
+            spawnPoints[i].y = i < 2 ? 0 : height - 1;
+        }
 
         emit Restart(width, height);
     }
 
-    function setactionInterval(uint256 _actionInterval) public onlyOwner {
-        actionInterval = _actionInterval;
-    }
-
     function setDropOnCollect(bool _dropOnCollect) public onlyOwner {
         dropOnCollect = _dropOnCollect;
+    }
+
+    function getCurrentBlockNumber() public view returns (uint256) {
+        return currentBlockNumber;
+    }
+
+    function getRestartBlockNumber() public view returns (uint256) {
+        return restartBlockNumber;
     }
 
     function start() public onlyOwner {
@@ -107,7 +118,7 @@ contract Game is Ownable {
             );
             yourPosition[players[i]] = Position(0, 0);
             health[players[i]] = 0;
-            lastActionAttempt[players[i]] = 0;
+            lastAction[players[i]] = 0;
             loogies[players[i]] = 0;
         }
 
@@ -123,10 +134,10 @@ contract Game is Ownable {
     }
 
     function update(address newContract) public {
-        require(gameOn, "TOO LATE");
+        // require(gameOn, "TOO LATE");
+        // require(tx.origin == msg.sender, "MUST BE AN EOA");
+        // require(yourContract[tx.origin] != address(0), "MUST HAVE A CONTRACT");
         health[tx.origin] = (health[tx.origin] * 80) / 100; //20% loss of health on contract update?!!? lol
-        require(tx.origin == msg.sender, "MUST BE AN EOA");
-        require(yourContract[tx.origin] != address(0), "MUST HAVE A CONTRACT");
         yourContract[tx.origin] = newContract;
     }
 
@@ -147,12 +158,33 @@ contract Game is Ownable {
         require(players.length <= 4, "MAX 4 LOOGIES REACHED");
 
         players.push(tx.origin);
+        // update(tx.origin);
         yourContract[tx.origin] = msg.sender;
         health[tx.origin] = 500;
         loogies[tx.origin] = loogieId;
 
-        randomlyPlace();
+        // Place loogie on the board, on a random corner
 
+        // it start on the center, 0-0
+        worldMatrix[0][0] = Field(tx.origin, 0);
+
+        // random number between 0 and 4
+        bytes32 predictableRandom = keccak256(
+            abi.encodePacked(
+                blockhash(block.number - 1),
+                msg.sender,
+                tx.origin,
+                address(this)
+            )
+        );
+
+        uint8 randomSpawnPoint = uint8(predictableRandom[0]) % spawnPointsCount;
+
+        Position memory spawnPoint = spawnPoints[randomSpawnPoint];
+
+        moveToCoord(spawnPoint.x, spawnPoint.y);
+
+        // drop health on the board
         dropHealth(10);
 
         emit Register(
@@ -205,35 +237,13 @@ contract Game is Ownable {
         return loogiesContract.tokenURI(loogies[player]);
     }
 
-    // function collectTokens() public {
-    //     require(health[tx.origin] > 0, "YOU DED");
-    //     require(block.timestamp - lastActionAttempt[tx.origin] >= actionInterval, "TOO EARLY");
-    //     lastActionAttempt[tx.origin] = block.timestamp;
-
-    //     Position memory position = yourPosition[tx.origin];
-    //     Field memory field = worldMatrix[position.x][position.y];
-    //     require(field.tokenAmountToCollect > 0, "NOTHING TO COLLECT");
-
-    //     if(field.tokenAmountToCollect > 0) {
-    //         uint256 amount = field.tokenAmountToCollect;
-    //         // mint tokens to tx.origin
-    //         loogieCoin.mint(tx.origin, amount);
-    //         worldMatrix[position.x][position.y].tokenAmountToCollect = 0;
-    //         emit CollectedTokens(tx.origin, amount);
-    //         if (dropOnCollect) {
-    //             dropToken(amount);
-    //         }
-    //     }
-
-    // }
-
     function collectHealth() public {
         require(health[tx.origin] > 0, "YOU DED");
         require(
-            block.timestamp - lastActionAttempt[tx.origin] >= actionInterval,
+            block.number - lastAction[tx.origin] >= block.number,
             "TOO EARLY"
         );
-        lastActionAttempt[tx.origin] = block.timestamp;
+        lastAction[tx.origin] = block.number;
 
         Position memory position = yourPosition[tx.origin];
         Field memory field = worldMatrix[position.x][position.y];
@@ -258,18 +268,30 @@ contract Game is Ownable {
     function move(MoveDirection direction) public {
         require(health[tx.origin] > 0, "YOU DED");
         require(
-            block.timestamp - lastActionAttempt[tx.origin] >= actionInterval,
+            block.number - lastAction[tx.origin] >= block.number,
             "TOO EARLY"
         );
+        lastAction[tx.origin] = block.number;
 
         if (requireContract) require(tx.origin != msg.sender, "NOT A CONTRACT");
         (uint8 x, uint8 y) = getCoordinates(direction, tx.origin);
+
+        moveToCoord(x, y);
+    }
+
+    function moveToCoord(uint8 x, uint8 y) public {
+        require(health[tx.origin] > 0, "YOU DED");
+        require(
+            block.number - lastAction[tx.origin] >= block.number,
+            "TOO EARLY"
+        );
+
+        // if (requireContract) require(tx.origin != msg.sender, "NOT A CONTRACT");
         require(x < width && y < height, "OUT OF BOUNDS");
 
         Field memory field = worldMatrix[x][y];
 
         require(field.player == address(0), "ANOTHER LOOGIE ON THIS POSITION");
-
         bytes32 predictableRandom = keccak256(
             abi.encodePacked(
                 blockhash(block.number - 1),
@@ -290,6 +312,7 @@ contract Game is Ownable {
             worldMatrix[yourPosition[tx.origin].x][yourPosition[tx.origin].y]
                 .player = address(0);
             emit GameOver(tx.origin);
+            // TODO: handle event
         }
     }
 
@@ -326,22 +349,6 @@ contract Game is Ownable {
         }
     }
 
-    // function dropToken(uint256 amount) internal {
-    //     bytes32 predictableRandom = keccak256(
-    //         abi.encodePacked(
-    //             blockhash(block.number - 1),
-    //             msg.sender,
-    //             address(this)
-    //         )
-    //     );
-
-    //     uint8 x = uint8(predictableRandom[0]) % width;
-    //     uint8 y = uint8(predictableRandom[1]) % height;
-
-    //     worldMatrix[x][y].tokenAmountToCollect += amount;
-    //     emit NewDrop(false, amount, x, y);
-    // }
-
     function dropHealth(uint256 amount) internal {
         bytes32 predictableRandom = keccak256(
             abi.encodePacked(
@@ -364,20 +371,6 @@ contract Game is Ownable {
     ) public onlyOwner {
         uint8 x;
         uint8 y;
-
-        // x = uint8(uint256(keccak256(abi.encode(firstRandomNumber, 1))) % width);
-        // y = uint8(
-        //     uint256(keccak256(abi.encode(secondRandomNumber, 1))) % height
-        // );
-        // worldMatrix[x][y].tokenAmountToCollect += 1000;
-        // emit NewDrop(false, 1000, x, y);
-
-        // x = uint8(uint256(keccak256(abi.encode(firstRandomNumber, 2))) % width);
-        // y = uint8(
-        //     uint256(keccak256(abi.encode(secondRandomNumber, 2))) % height
-        // );
-        // worldMatrix[x][y].tokenAmountToCollect += 500;
-        // emit NewDrop(false, 500, x, y);
 
         x = uint8(uint256(keccak256(abi.encode(firstRandomNumber, 3))) % width);
         y = uint8(

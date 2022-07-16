@@ -1,4 +1,4 @@
-import { Button, Col, Row, Card, List, Menu, Tooltip } from "antd";
+import { Button, Col, Row, Card, List, Menu, Tooltip, Progress } from "antd";
 import Blockies from "react-blockies";
 import "antd/dist/antd.css";
 import {
@@ -117,6 +117,7 @@ function App(props) {
   const [injectedProvider, setInjectedProvider] = useState();
   const [address, setAddress] = useState();
   const [selectedNetwork, setSelectedNetwork] = useState(networkOptions[0]);
+  // const [nextBlockPercent, setNextBlockPercent] = useState(0);
   const location = useLocation();
 
   const targetNetwork = NETWORKS[selectedNetwork];
@@ -214,51 +215,24 @@ function App(props) {
   const height = 6;
 
   const WORLD_QUERY_GRAPHQL = `
-    {
-      worldMatrixes(
-        where: {player_not: null}
-        ) {
-            id
-            x
-            y
-            healthAmountToCollect
-            player {
-              id
-              address
-              loogieId
-              health
-            }
+  {
+    worldMatrixes {
+      id
+      x
+      y
+      healthAmountToCollect,
+      cursed
+      player {
+        id
+        address
+        loogieId
+        health
       }
     }
+  }
   `;
   const WORLD_QUERY_GQL = gql(WORLD_QUERY_GRAPHQL);
   const { loading, error, data } = useQuery(WORLD_QUERY_GQL, { pollInterval: 10000 });
-
-  // console.log("worldPlayerData: ", worldPlayerData);
-
-  // const WORLD_HEALTH_GRAPHQL = `
-  //   {
-  //     worldMatrixes(
-  //       where: {healthAmountToCollect_gt: 0}
-  //       ) {
-  //           id
-  //           x
-  //           y
-  //           healthAmountToCollect
-  //           player {
-  //             id
-  //             address
-  //             loogieId
-  //             health
-  //           }
-  //     }
-  //   }
-  // `;
-
-  // const WORLD_HEALTH_GQL = gql(WORLD_HEALTH_GRAPHQL);
-  // const worldHealthData = useQuery(WORLD_HEALTH_GQL, { pollInterval: 2500 });
-
-  // console.log("worldHealthData: ", worldHealthData);
 
   const [yourLoogiesBalance, setYourLoogiesBalance] = useState(0);
   const [yourLoogies, setYourLoogies] = useState();
@@ -339,125 +313,6 @@ function App(props) {
   const s = 64;
   const squareW = s;
   const squareH = s;
-
-  const [worldView, setWorldView] = useState();
-
-  useEffect(() => {
-    console.log("🚀 ~ file: App.jsx ~ line 472 ~ useEffect ~ playerData", playerData);
-
-    console.log("rendering world...");
-    if (data) {
-      console.log("🚀 ~ file: App.jsx ~ line 371 ~ useEffect ~ data", data);
-      console.log("rendering world2...");
-      let worldUpdate = [];
-      for (let y = 0; y < height; y++) {
-        for (let x = width - 1; x >= 0; x--) {
-          let healthHere = 0;
-
-          for (let d in data.worldMatrixes) {
-            if (data.worldMatrixes[d].x === x && data.worldMatrixes[d].y === y) {
-              healthHere = parseInt(data.worldMatrixes[d].healthAmountToCollect);
-            }
-          }
-
-          let fieldDisplay = "";
-
-          if (healthHere > 0) {
-            fieldDisplay = (
-              <img
-                alt="Health"
-                src="Health_Full.svg"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  transform: "sacale(1.5)",
-                }}
-              />
-            );
-          }
-
-          //look for players here...
-          let playerDisplay = "";
-
-          for (let p in playerData) {
-            if (playerData[p].position.x === x && playerData[p].position.y === y) {
-              const player = playerData[p];
-              playerDisplay = (
-                <Tooltip title={player.address}>
-                  <div style={{ position: "relative", height: "100%", width: "100%" }}>
-                    {currentPlayer?.address && currentPlayer.address.toLowerCase() === player.address.toLowerCase() && (
-                      <Blockies address={player.address} size={8} scale={7.5} />
-                    )}
-
-                    {/* show player.health */}
-                    <span
-                      style={{
-                        position: "absolute",
-                        bottom: 0,
-                        left: 0,
-                        textAlign: "center",
-                        width: "100%",
-                        fontSize: "1.5rem",
-                        color: "red",
-                        fontWeight: "bold",
-                        textShadow: "0 0 5px black",
-                        zIndex: 4,
-                      }}
-                    >
-                      {player.health}
-                    </span>
-                    <img
-                      alt={player.address}
-                      src={player.image}
-                      style={{
-                        transform: "scale(3, 3)",
-                        width: "100%",
-                        height: "100%",
-                        top: -20,
-                        position: "absolute",
-                        left: 0,
-                        zIndex: 3,
-                      }}
-                    />
-                  </div>
-                </Tooltip>
-              );
-            }
-          }
-
-          // console.log("🚀 ~ file: App.jsx ~ line 447 ~ useEffect ~ currentPlayer", currentPlayer);
-
-          worldUpdate.push(
-            <div
-              key={`${x}-${y}`}
-              style={{
-                width: squareW,
-                height: squareH,
-                padding: 1,
-                position: "absolute",
-                left: squareW * x,
-                top: squareH * y,
-                overflow: "visible",
-              }}
-            >
-              <div
-                style={{
-                  position: "relative",
-                  height: "100%",
-                  width: "100%",
-                  background: (x + y) % 2 ? "#BBBBBB" : "#EEEEEE",
-                }}
-              >
-                {playerDisplay ? playerDisplay : <span style={{ opacity: 0.4 }}>{"" + x + "," + y}</span>}
-                <div style={{ opacity: 0.7, position: "absolute", left: 0, top: 0 }}>{fieldDisplay}</div>
-              </div>
-            </div>,
-          );
-        }
-      }
-      setWorldView(worldUpdate);
-    }
-  }, [squareH, squareW, data, playerData, currentPlayer]);
 
   /*
   const addressFromENS = useResolveName(mainnetProvider, "austingriffith.eth");
@@ -752,6 +607,19 @@ function App(props) {
                   zIndex: 9,
                 }}
               >
+                {/* TODO: block progress, maybe with css only? */}
+                {/* <Progress
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    right: 0,
+                    zIndex: 11,
+                    width: "100%",
+                  }}
+                  percent={nextBlockPercent}
+                  showInfo={false}
+                /> */}
+
                 {currentPlayer && (
                   <div
                     style={{
@@ -823,7 +691,6 @@ function App(props) {
                   }}
                   to="/"
                 >
-                  Game block <strong>{gameBlock}</strong>{" "}
                   <Link
                     style={{
                       background: "rgba(0,0,0,0.5)",
@@ -852,7 +719,96 @@ function App(props) {
                     backgroundColor: "#b3e2f4",
                   }}
                 >
-                  {worldView}
+                  {data.worldMatrixes.map((world, index) => {
+                    const { x, y, player, healthAmountToCollect } = world;
+
+                    const healthHere = parseInt(healthAmountToCollect);
+                    let fieldDisplay = "";
+                    let playerDisplay = "";
+
+                    if (healthHere > 0) {
+                      fieldDisplay = (
+                        <img
+                          alt="Health"
+                          src="Health_Full.svg"
+                          style={{
+                            width: "70%",
+                            height: "70%",
+                          }}
+                        />
+                      );
+                    }
+
+                    if (player) {
+                      playerDisplay = (
+                        <Tooltip title={player.address}>
+                          <div style={{ position: "relative", height: "100%", width: "100%" }}>
+                            {currentPlayer && currentPlayer.address.toLowerCase() === player.address?.toLowerCase() && (
+                              <Blockies address={player.address} size={8} scale={7.5} />
+                            )}
+
+                            <span
+                              style={{
+                                position: "absolute",
+                                bottom: 0,
+                                left: 0,
+                                textAlign: "center",
+                                width: "100%",
+                                fontSize: "1.5rem",
+                                color: "red",
+                                fontWeight: "bold",
+                                textShadow: "0 0 5px black",
+                                zIndex: 4,
+                              }}
+                            >
+                              {player.health}
+                            </span>
+                            {/* TODO: add image to the graph */}
+                            {/* <img
+                            alt={player.address}
+                            src={player.image}
+                            style={{
+                              transform: "scale(3, 3)",
+                              width: "100%",
+                              height: "100%",
+                              top: -20,
+                              position: "absolute",
+                              left: 0,
+                              zIndex: 3,
+                            }}
+                          /> */}
+                          </div>
+                        </Tooltip>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={`${x}-${y}`}
+                        style={{
+                          width: squareW,
+                          height: squareH,
+                          padding: 1,
+                          position: "absolute",
+                          left: squareW * x,
+                          top: squareH * y,
+                          overflow: "visible",
+                        }}
+                      >
+                        <div
+                          style={{
+                            position: "relative",
+                            height: "100%",
+                            width: "100%",
+                            background: (x + y) % 2 ? "#BBBBBB" : "#EEEEEE",
+                          }}
+                        >
+                          {playerDisplay ? playerDisplay : <span style={{ opacity: 0.4 }}>{"" + x + "," + y}</span>}
+                          <div style={{ opacity: 0.7, position: "absolute", left: 0, top: 0 }}>{fieldDisplay}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </>
