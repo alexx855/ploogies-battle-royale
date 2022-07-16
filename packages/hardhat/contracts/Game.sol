@@ -51,16 +51,16 @@ contract Game is Ownable {
     // LoogieCoinContract public loogieCoin;
 
     bool public gameOn;
-    uint256 public collectInterval;
+    uint256 public actionInterval;
 
-    uint8 public constant width = 24;
-    uint8 public constant height = 24;
+    uint8 public constant width = 6;
+    uint8 public constant height = 6;
     Field[width][height] public worldMatrix;
 
     mapping(address => address) public yourContract;
     mapping(address => Position) public yourPosition;
     mapping(address => uint256) public health;
-    mapping(address => uint256) public lastCollectAttempt;
+    mapping(address => uint256) public lastActionAttempt;
     mapping(address => uint256) public loogies;
     address[] public players;
 
@@ -68,8 +68,8 @@ contract Game is Ownable {
     bool public dropOnCollect;
     uint8 public attritionDivider = 50;
 
-    constructor(uint256 _collectInterval, address _loogiesContractAddress) {
-        collectInterval = _collectInterval;
+    constructor(uint256 _actionInterval, address _loogiesContractAddress) {
+        actionInterval = _actionInterval;
         loogiesContract = LoogiesContract(_loogiesContractAddress);
         // loogieCoin = LoogieCoinContract(_loogieCoinContractAddress);
         restartBlockNumber = block.number;
@@ -77,8 +77,8 @@ contract Game is Ownable {
         emit Restart(width, height);
     }
 
-    function setCollectInterval(uint256 _collectInterval) public onlyOwner {
-        collectInterval = _collectInterval;
+    function setactionInterval(uint256 _actionInterval) public onlyOwner {
+        actionInterval = _actionInterval;
     }
 
     function setDropOnCollect(bool _dropOnCollect) public onlyOwner {
@@ -107,7 +107,7 @@ contract Game is Ownable {
             );
             yourPosition[players[i]] = Position(0, 0);
             health[players[i]] = 0;
-            lastCollectAttempt[players[i]] = 0;
+            lastActionAttempt[players[i]] = 0;
             loogies[players[i]] = 0;
         }
 
@@ -144,7 +144,7 @@ contract Game is Ownable {
             loogiesContract.ownerOf(loogieId) == tx.origin,
             "ONLY LOOGIES THAT YOU OWN"
         );
-        require(players.length <= 50, "MAX 50 LOOGIES REACHED");
+        require(players.length <= 4, "MAX 4 LOOGIES REACHED");
 
         players.push(tx.origin);
         yourContract[tx.origin] = msg.sender;
@@ -207,8 +207,8 @@ contract Game is Ownable {
 
     // function collectTokens() public {
     //     require(health[tx.origin] > 0, "YOU DED");
-    //     require(block.timestamp - lastCollectAttempt[tx.origin] >= collectInterval, "TOO EARLY");
-    //     lastCollectAttempt[tx.origin] = block.timestamp;
+    //     require(block.timestamp - lastActionAttempt[tx.origin] >= actionInterval, "TOO EARLY");
+    //     lastActionAttempt[tx.origin] = block.timestamp;
 
     //     Position memory position = yourPosition[tx.origin];
     //     Field memory field = worldMatrix[position.x][position.y];
@@ -230,10 +230,10 @@ contract Game is Ownable {
     function collectHealth() public {
         require(health[tx.origin] > 0, "YOU DED");
         require(
-            block.timestamp - lastCollectAttempt[tx.origin] >= collectInterval,
+            block.timestamp - lastActionAttempt[tx.origin] >= actionInterval,
             "TOO EARLY"
         );
-        lastCollectAttempt[tx.origin] = block.timestamp;
+        lastActionAttempt[tx.origin] = block.timestamp;
 
         Position memory position = yourPosition[tx.origin];
         Field memory field = worldMatrix[position.x][position.y];
@@ -257,6 +257,11 @@ contract Game is Ownable {
 
     function move(MoveDirection direction) public {
         require(health[tx.origin] > 0, "YOU DED");
+        require(
+            block.timestamp - lastActionAttempt[tx.origin] >= actionInterval,
+            "TOO EARLY"
+        );
+
         if (requireContract) require(tx.origin != msg.sender, "NOT A CONTRACT");
         (uint8 x, uint8 y) = getCoordinates(direction, tx.origin);
         require(x < width && y < height, "OUT OF BOUNDS");

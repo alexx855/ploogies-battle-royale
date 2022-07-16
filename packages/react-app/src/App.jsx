@@ -210,8 +210,8 @@ function App(props) {
 
   // keep track of a variable from the contract in the local React state:
   const purpose = useContractReader(readContracts, "YourContract", "purpose");
-  const width = 24;
-  const height = 24;
+  const width = 6;
+  const height = 6;
 
   const WORLD_QUERY_GRAPHQL = `
     {
@@ -838,7 +838,7 @@ function App(props) {
 
                 <div
                   style={{
-                    transform: "scale(0.6,0.6)",
+                    // transform: "scale(0.6,0.6)",
                     // transform: "rotate(-45deg) scale(0.4,0.4)",
                     color: "#111111",
                     fontWeight: "bold",
