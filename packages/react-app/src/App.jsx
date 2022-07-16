@@ -213,7 +213,7 @@ function App(props) {
   const width = 24;
   const height = 24;
 
-  const WORLD_PLAYER_GRAPHQL = `
+  const WORLD_QUERY_GRAPHQL = `
     {
       worldMatrixes(
         where: {player_not: null}
@@ -231,39 +231,39 @@ function App(props) {
       }
     }
   `;
-  const WORLD_PLAYER_GQL = gql(WORLD_PLAYER_GRAPHQL);
-  const worldPlayerData = useQuery(WORLD_PLAYER_GQL, { pollInterval: 10000 });
+  const WORLD_QUERY_GQL = gql(WORLD_QUERY_GRAPHQL);
+  const { loading, error, data } = useQuery(WORLD_QUERY_GQL, { pollInterval: 10000 });
 
   // console.log("worldPlayerData: ", worldPlayerData);
 
-  const WORLD_HEALTH_GRAPHQL = `
-    {
-      worldMatrixes(
-        where: {healthAmountToCollect_gt: 0}
-        ) {
-            id
-            x
-            y
-            healthAmountToCollect
-            player {
-              id
-              address
-              loogieId
-              health
-            }
-      }
-    }
-  `;
+  // const WORLD_HEALTH_GRAPHQL = `
+  //   {
+  //     worldMatrixes(
+  //       where: {healthAmountToCollect_gt: 0}
+  //       ) {
+  //           id
+  //           x
+  //           y
+  //           healthAmountToCollect
+  //           player {
+  //             id
+  //             address
+  //             loogieId
+  //             health
+  //           }
+  //     }
+  //   }
+  // `;
 
-  const WORLD_HEALTH_GQL = gql(WORLD_HEALTH_GRAPHQL);
-  const worldHealthData = useQuery(WORLD_HEALTH_GQL, { pollInterval: 2500 });
+  // const WORLD_HEALTH_GQL = gql(WORLD_HEALTH_GRAPHQL);
+  // const worldHealthData = useQuery(WORLD_HEALTH_GQL, { pollInterval: 2500 });
 
   // console.log("worldHealthData: ", worldHealthData);
 
   const [yourLoogiesBalance, setYourLoogiesBalance] = useState(0);
   const [yourLoogies, setYourLoogies] = useState();
 
-  const [loading, setLoading] = useState(true);
+  const [loadingLoogies, setLoadingLoogies] = useState(true);
   const [page, setPage] = useState(1);
   const perPage = 1;
 
@@ -275,10 +275,14 @@ function App(props) {
     if (readContracts.Loogies) {
       async function fetchData() {
         // You can await here
-        const { loogies, loogiesBalance } = await fetchLoogies(address, readContracts);
-        setYourLoogies(loogies.reverse());
-        setYourLoogiesBalance(loogiesBalance);
-        setLoading(false);
+        try {
+          const { loogies, loogiesBalance } = await fetchLoogies(address, readContracts);
+          setYourLoogies(loogies.reverse());
+          setYourLoogiesBalance(loogiesBalance);
+        } catch (error) {
+          console.log("Error: ", error);
+        }
+        setLoadingLoogies(false);
       }
       fetchData();
     } else {
@@ -286,33 +290,18 @@ function App(props) {
     }
   }, [address, readContracts]);
 
-  // const [activePlayer, setActivePlayer] = useState();
-
-  // useEffect(() => {
-  //   let active = false;
-  //   if (address && worldPlayerData.data && worldPlayerData.data?.worldMatrixes) {
-  //     for (let p in worldPlayerData.data.worldMatrixes) {
-  //       if (worldPlayerData.data.worldMatrixes[p].player.address.toLowerCase() === address.toLowerCase()) {
-  //         active = true;
-  //       }
-  //     }
-  //   }
-
-  //   setActivePlayer(active);
-  // }, [address, readContracts.Game, worldPlayerData.data]);
-
   const [playerData, setPlayerData] = useState();
   const [currentPlayer, setCurrentPlayer] = useState();
 
   useEffect(() => {
     const updatePlayersData = async () => {
       if (readContracts.Game) {
-        console.log("PARSE PLAYERS:::", worldPlayerData);
+        // console.log("PARSE PLAYERS:::", worldMatrixes);
         try {
           let playerData = {};
 
-          if (worldPlayerData.data && worldPlayerData.data.worldMatrixes?.length > 0) {
-            const playersData = worldPlayerData.data.worldMatrixes;
+          if (data && data.worldMatrixes?.length > 0) {
+            const playersData = data.worldMatrixes.filter(world => world.player && world.player.address);
             for (let p in playersData) {
               const currentPosition = playersData[p];
               console.log("loading info for ", currentPosition);
@@ -345,7 +334,7 @@ function App(props) {
       }
     };
     updatePlayersData();
-  }, [address, worldPlayerData, readContracts.Game]);
+  }, [address, data, readContracts.Game]);
 
   const s = 64;
   const squareW = s;
@@ -357,17 +346,17 @@ function App(props) {
     console.log("🚀 ~ file: App.jsx ~ line 472 ~ useEffect ~ playerData", playerData);
 
     console.log("rendering world...");
-    if (worldHealthData.data) {
-      console.log("🚀 ~ file: App.jsx ~ line 371 ~ useEffect ~ worldHealthData.data", worldHealthData.data);
+    if (data) {
+      console.log("🚀 ~ file: App.jsx ~ line 371 ~ useEffect ~ data", data);
       console.log("rendering world2...");
       let worldUpdate = [];
       for (let y = 0; y < height; y++) {
         for (let x = width - 1; x >= 0; x--) {
           let healthHere = 0;
 
-          for (let d in worldHealthData.data.worldMatrixes) {
-            if (worldHealthData.data.worldMatrixes[d].x === x && worldHealthData.data.worldMatrixes[d].y === y) {
-              healthHere = parseInt(worldHealthData.data.worldMatrixes[d].healthAmountToCollect);
+          for (let d in data.worldMatrixes) {
+            if (data.worldMatrixes[d].x === x && data.worldMatrixes[d].y === y) {
+              healthHere = parseInt(data.worldMatrixes[d].healthAmountToCollect);
             }
           }
 
@@ -436,7 +425,7 @@ function App(props) {
             }
           }
 
-          console.log("🚀 ~ file: App.jsx ~ line 447 ~ useEffect ~ currentPlayer", currentPlayer);
+          // console.log("🚀 ~ file: App.jsx ~ line 447 ~ useEffect ~ currentPlayer", currentPlayer);
 
           worldUpdate.push(
             <div
@@ -468,7 +457,7 @@ function App(props) {
       }
       setWorldView(worldUpdate);
     }
-  }, [squareH, squareW, worldHealthData.data, playerData, currentPlayer]);
+  }, [squareH, squareW, data, playerData, currentPlayer]);
 
   /*
   const addressFromENS = useResolveName(mainnetProvider, "austingriffith.eth");
@@ -618,257 +607,256 @@ function App(props) {
         </Route>
 
         <Route exact path="/play">
-          <div style={{ position: "absolute", right: 50, top: 150, width: 600, zIndex: 10 }}>
-            {!currentPlayer && (
-              <div>
-                <div style={{ padding: 4 }}>
-                  {loading || (yourLoogies && yourLoogies.length > 0) ? (
-                    <div id="your-loogies" style={{ paddingTop: 20 }}>
-                      <div>
-                        <List
-                          grid={{
-                            gutter: 1,
-                            xs: 1,
-                            sm: 1,
-                            md: 1,
-                            lg: 1,
-                            xl: 1,
-                            xxl: 1,
-                          }}
-                          pagination={{
-                            total: yourLoogiesBalance,
-                            defaultPageSize: perPage,
-                            defaultCurrent: page,
-                            onChange: currentPage => {
-                              setPage(currentPage);
-                            },
-                            showTotal: (total, range) => `${range[0]}-${range[1]} of ${yourLoogiesBalance} items`,
-                          }}
-                          loading={loading}
-                          dataSource={yourLoogies}
-                          renderItem={item => {
-                            const id = item.id.toNumber();
-
-                            return (
-                              <List.Item key={id + "_" + item.uri + "_" + item.owner}>
-                                <Card
-                                  style={{
-                                    backgroundColor: "#b3e2f4",
-                                    border: "1px solid #0071bb",
-                                    borderRadius: 10,
-                                    marginRight: 10,
-                                  }}
-                                  headStyle={{ paddingRight: 12, paddingLeft: 12 }}
-                                  title={
-                                    <div>
-                                      <span style={{ fontSize: 16, marginRight: 8 }}>{item.name}</span>
-                                      <Button
-                                        onClick={async () => {
-                                          setLoading(true);
-                                          tx(writeContracts.Game.register(id)).then(async () => {
-                                            if (DEBUG) console.log("Updating active player...");
-
-                                            // try {
-                                            //   const players = await readContracts.Game.getPlayers();
-                                            //   if (DEBUG) console.log("players: ", players);
-                                            //   const activePlayer = players.find(player => player === address);
-
-                                            //   if (DEBUG) console.log("activePlayer: ", activePlayer);
-                                            //   setActivePlayer(activePlayer);
-                                            // } catch (error) {
-                                            //   console.log(error);
-                                            // }
-                                          });
-                                        }}
-                                      >
-                                        Register
-                                      </Button>
-                                    </div>
-                                  }
-                                >
-                                  <img alt={item.id} src={item.image} width="240" />
-                                </Card>
-                              </List.Item>
-                            );
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ minHeight: 200, fontSize: 30 }}>
-                      <Card
-                        style={{
-                          backgroundColor: "#b3e2f4",
-                          border: "1px solid #0071bb",
-                          borderRadius: 10,
-                          width: 600,
-                          margin: "0 auto",
-                          textAlign: "center",
-                          fontSize: 16,
-                        }}
-                        title={
+          {/* if (loading) return <p>Loading...</p>; */}
+          {loading ? (
+            <p>Loading graph...</p>
+          ) : error ? (
+            <p>Error loading graph</p>
+          ) : (
+            <>
+              <div style={{ position: "absolute", right: 50, top: 150, width: 600, zIndex: 10 }}>
+                {!currentPlayer && (
+                  <div>
+                    <div style={{ padding: 4 }}>
+                      {loadingLoogies || (yourLoogies && yourLoogies.length > 0) ? (
+                        <div id="your-loogies" style={{ paddingTop: 20 }}>
                           <div>
-                            <span style={{ fontSize: 18, marginRight: 8, fontWeight: "bold" }}>
-                              Do you need some Loogies?
-                            </span>
-                          </div>
-                        }
-                      >
-                        <div>
-                          <p>
-                            You can mint a <strong>Loogie</strong> here
-                          </p>
-                          <p>
-                            <button
-                              onClick={async event => {
-                                // event.target.parentElement.disabled = true;
-                                const priceRightNow = await readContracts.Loogies.price();
-
-                                // console.log(priceRightNow);
-                                setLoading(true);
-
-                                tx(writeContracts.Loogies.mintItem({ value: priceRightNow }), async function () {
-                                  try {
-                                    const { loogies, loogiesBalance } = await fetchLoogies(address, readContracts);
-                                    setYourLoogies(loogies.reverse());
-                                    setYourLoogiesBalance(loogiesBalance);
-                                  } catch (error) {
-                                    console.log("🚀 ~ file: App.jsx ~ line 794 ~ error", error);
-                                  }
-
-                                  setLoading(false);
-                                });
+                            <List
+                              grid={{
+                                gutter: 1,
+                                xs: 1,
+                                sm: 1,
+                                md: 1,
+                                lg: 1,
+                                xl: 1,
+                                xxl: 1,
                               }}
-                              // href="javascript:void(0);"
-                              size="large"
-                              shape="round"
-                            >
-                              Mint
-                            </button>
-                          </p>
-                        </div>
-                      </Card>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+                              pagination={{
+                                total: yourLoogiesBalance,
+                                defaultPageSize: perPage,
+                                defaultCurrent: page,
+                                onChange: currentPage => {
+                                  setPage(currentPage);
+                                },
+                                showTotal: (total, range) => `${range[0]}-${range[1]} of ${yourLoogiesBalance} items`,
+                              }}
+                              loading={loadingLoogies}
+                              dataSource={yourLoogies}
+                              renderItem={item => {
+                                const id = item.id.toNumber();
 
-          <div
-            style={{
-              position: "absolute",
-              background: "rgba(0,0,0,0.5)",
-              right: 0,
-              top: 0,
-              width: "100vw",
-              height: "100vh",
-              overflow: "hidden",
-              zIndex: 9,
-            }}
-          >
-            {currentPlayer && (
+                                return (
+                                  <List.Item key={id + "_" + item.uri + "_" + item.owner}>
+                                    <Card
+                                      style={{
+                                        backgroundColor: "#b3e2f4",
+                                        border: "1px solid #0071bb",
+                                        borderRadius: 10,
+                                        marginRight: 10,
+                                      }}
+                                      headStyle={{ paddingRight: 12, paddingLeft: 12 }}
+                                      title={
+                                        <div>
+                                          <span style={{ fontSize: 16, marginRight: 8 }}>{item.name}</span>
+                                          <Button
+                                            onClick={async () => {
+                                              setLoadingLoogies(true);
+                                              tx(writeContracts.Game.register(id)).then(async () => {
+                                                if (DEBUG) console.log("Updating active player...");
+                                              });
+                                            }}
+                                          >
+                                            Register
+                                          </Button>
+                                        </div>
+                                      }
+                                    >
+                                      <img alt={item.id} src={item.image} width="240" />
+                                    </Card>
+                                  </List.Item>
+                                );
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ minHeight: 200, fontSize: 30 }}>
+                          <Card
+                            style={{
+                              backgroundColor: "#b3e2f4",
+                              border: "1px solid #0071bb",
+                              borderRadius: 10,
+                              width: 600,
+                              margin: "0 auto",
+                              textAlign: "center",
+                              fontSize: 16,
+                            }}
+                            title={
+                              <div>
+                                <span style={{ fontSize: 18, marginRight: 8, fontWeight: "bold" }}>
+                                  Do you need some Loogies?
+                                </span>
+                              </div>
+                            }
+                          >
+                            <div>
+                              <p>
+                                You can mint a <strong>Loogie</strong> here
+                              </p>
+                              <p>
+                                <button
+                                  onClick={async event => {
+                                    // event.target.parentElement.disabled = true;
+                                    const priceRightNow = await readContracts.Loogies.price();
+
+                                    // console.log(priceRightNow);
+                                    setLoadingLoogies(true);
+
+                                    tx(writeContracts.Loogies.mintItem({ value: priceRightNow }), async function () {
+                                      try {
+                                        const { loogies, loogiesBalance } = await fetchLoogies(address, readContracts);
+                                        setYourLoogies(loogies.reverse());
+                                        setYourLoogiesBalance(loogiesBalance);
+                                      } catch (error) {
+                                        console.log("🚀 ~ file: App.jsx ~ line 794 ~ error", error);
+                                      }
+
+                                      setLoadingLoogies(false);
+                                    });
+                                  }}
+                                  // href="javascript:void(0);"
+                                  size="large"
+                                  shape="round"
+                                >
+                                  Mint
+                                </button>
+                              </p>
+                            </div>
+                          </Card>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div
                 style={{
                   position: "absolute",
-                  left: 10,
-                  top: 10,
-                  zIndex: 11,
-                }}
-                to="/"
-              >
-                <Button
-                  title="LEFT"
-                  disabled={!currentPlayer.health > 0}
-                  onClick={async () => {
-                    tx(writeContracts.Game.move(2));
-                  }}
-                >
-                  LEFT
-                </Button>
-                <Button
-                  title="RIGHT"
-                  disabled={!currentPlayer.health > 0}
-                  onClick={async () => {
-                    tx(writeContracts.Game.move(3));
-                  }}
-                >
-                  RIGHT
-                </Button>
-                <Button
-                  title="UP"
-                  disabled={!currentPlayer.health > 0}
-                  onClick={async () => {
-                    tx(writeContracts.Game.move(0));
-                  }}
-                >
-                  UP
-                </Button>
-                <Button
-                  title="DOWN"
-                  disabled={!currentPlayer.health > 0}
-                  onClick={async () => {
-                    tx(writeContracts.Game.move(1));
-                  }}
-                >
-                  DOWN
-                </Button>
-
-                <Button
-                  title="Collect Health"
-                  disabled={!currentPlayer.health > 0}
-                  style={{ marginLeft: 10 }}
-                  onClick={async () => {
-                    tx(writeContracts.Game.collectHealth());
-                  }}
-                >
-                  Collect Health
-                </Button>
-              </div>
-            )}
-
-            <div
-              style={{
-                position: "absolute",
-                right: 10,
-                textAlign: "right",
-                top: 10,
-                zIndex: 11,
-              }}
-              to="/"
-            >
-              Game block <strong>{gameBlock}</strong>{" "}
-              <Link
-                style={{
                   background: "rgba(0,0,0,0.5)",
-                  padding: 10,
-                  marginLeft: 10,
+                  right: 0,
+                  top: 0,
+                  width: "100vw",
+                  height: "100vh",
+                  overflow: "hidden",
+                  zIndex: 9,
                 }}
-                to="/"
               >
-                Close
-              </Link>
-            </div>
+                {currentPlayer && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: 10,
+                      top: 10,
+                      zIndex: 11,
+                    }}
+                    to="/"
+                  >
+                    <Button
+                      title="LEFT"
+                      disabled={!currentPlayer.health > 0}
+                      onClick={async () => {
+                        tx(writeContracts.Game.move(2));
+                      }}
+                    >
+                      LEFT
+                    </Button>
+                    <Button
+                      title="RIGHT"
+                      disabled={!currentPlayer.health > 0}
+                      onClick={async () => {
+                        tx(writeContracts.Game.move(3));
+                      }}
+                    >
+                      RIGHT
+                    </Button>
+                    <Button
+                      title="UP"
+                      disabled={!currentPlayer.health > 0}
+                      onClick={async () => {
+                        tx(writeContracts.Game.move(0));
+                      }}
+                    >
+                      UP
+                    </Button>
+                    <Button
+                      title="DOWN"
+                      disabled={!currentPlayer.health > 0}
+                      onClick={async () => {
+                        tx(writeContracts.Game.move(1));
+                      }}
+                    >
+                      DOWN
+                    </Button>
 
-            <div
-              style={{
-                transform: "scale(0.6,0.6)",
-                // transform: "rotate(-45deg) scale(0.4,0.4)",
-                color: "#111111",
-                fontWeight: "bold",
-                width: width * squareW,
-                height: height * squareH,
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                marginTop: (-height * squareH) / 2,
-                marginLeft: (-width * squareW) / 2,
-                backgroundColor: "#b3e2f4",
-              }}
-            >
-              {worldView}
-            </div>
-          </div>
+                    {/* 
+                    <Button
+                      title="Collect Health"
+                      disabled={!currentPlayer.health > 0}
+                      style={{ marginLeft: 10 }}
+                      onClick={async () => {
+                        tx(writeContracts.Game.collectHealth());
+                      }}
+                    >
+                      Collect Health
+                    </Button> */}
+                  </div>
+                )}
+
+                <div
+                  style={{
+                    position: "absolute",
+                    right: 10,
+                    textAlign: "right",
+                    top: 10,
+                    zIndex: 11,
+                  }}
+                  to="/"
+                >
+                  Game block <strong>{gameBlock}</strong>{" "}
+                  <Link
+                    style={{
+                      background: "rgba(0,0,0,0.5)",
+                      padding: 10,
+                      marginLeft: 10,
+                    }}
+                    to="/"
+                  >
+                    Close
+                  </Link>
+                </div>
+
+                <div
+                  style={{
+                    transform: "scale(0.6,0.6)",
+                    // transform: "rotate(-45deg) scale(0.4,0.4)",
+                    color: "#111111",
+                    fontWeight: "bold",
+                    width: width * squareW,
+                    height: height * squareH,
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    marginTop: (-height * squareH) / 2,
+                    marginLeft: (-width * squareW) / 2,
+                    backgroundColor: "#b3e2f4",
+                  }}
+                >
+                  {worldView}
+                </div>
+              </div>
+            </>
+          )}
         </Route>
 
         <Route exact path="/debug">

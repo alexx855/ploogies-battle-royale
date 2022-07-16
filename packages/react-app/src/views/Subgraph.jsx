@@ -26,25 +26,30 @@ function Subgraph(props) {
 
   const EXAMPLE_GRAPHQL = `
   {
-    players{
-            id,
-            x,
-            y,
-            loogieId,
-            health
-          }
+    worldMatrixes {
+      id
+      x
+      y
+      healthAmountToCollect
+      player {
+        id
+        address
+        loogieId
+        health
+      }
+    }
   }
   `;
 
   const EXAMPLE_GQL = gql(EXAMPLE_GRAPHQL);
   const { loading, data } = useQuery(EXAMPLE_GQL, { pollInterval: 2500 });
 
-  const playersColumns = [
-    {
-      title: "id",
-      key: "id",
-      render: record => <Address value={record.id} ensProvider={props.mainnetProvider} fontSize={16} />,
-    },
+  const exampleColumns = [
+    // {
+    //   title: "id",
+    //   key: "id",
+    //   render: record => <Address value={record.id} ensProvider={props.mainnetProvider} fontSize={16} />,
+    // },
     {
       title: "x",
       dataIndex: "x",
@@ -59,6 +64,11 @@ function Subgraph(props) {
       title: "health",
       dataIndex: "health",
       key: "health",
+    },
+    {
+      title: "players",
+      dataIndex: "players",
+      key: "players",
     },
   ];
 
@@ -160,7 +170,7 @@ function Subgraph(props) {
 
       <div style={{ width: "100%", paddingBottom: 64 }}>
         {data ? (
-          <Table dataSource={data.players} columns={playersColumns} rowKey="id" />
+          <Table dataSource={data.worldMatrixes} columns={exampleColumns} rowKey="id" />
         ) : (
           <Typography>{loading ? "Loading..." : deployWarning}</Typography>
         )}
