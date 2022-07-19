@@ -51,14 +51,14 @@ module.exports = async ({ getNamedAccounts, deployments, getChainId }) => {
 
   const GameContract = await ethers.getContract("Game", deployer);
 
-  await GameContract.start();
-
+  // await GameContract.start();
   await GameContract.setDropOnCollect(true);
 
-  // if (chainId === localChainId)
-  // await GameContract.transferOwnership(
-  //   "0x7323188a94F213b72883d94e8950Aad35Cb15CF7"
-  // );
+  // if (chainId !== localChainId) {
+  //   await GameContract.transferOwnership(
+  //     "0x2E4D22389510eD618A4cF778409270C34eE1AF9e"
+  //   );
+  // }
 
   try {
     if (chainId !== localChainId)

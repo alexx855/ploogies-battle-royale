@@ -131,6 +131,12 @@ function Subgraph(props) {
       key: "id",
     },
     {
+      title: "gameOn",
+      dataIndex: "gameOn",
+      key: "gameOn",
+      render: record => (record ? "true" : "false"),
+    },
+    {
       title: "height",
       dataIndex: "height",
       key: "height",

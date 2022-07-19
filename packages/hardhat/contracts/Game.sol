@@ -28,14 +28,14 @@ contract Game is Ownable {
         address indexed msgSender,
         uint8 x,
         uint8 y,
-        uint256 loogieId
+        uint256 loogieId,
+        bool gameOn
     );
     event Move(address indexed txOrigin, uint8 x, uint8 y, uint256 health);
     event NewCurse(uint256 nextCurseBlockNumber);
     event NewHealthDrop(uint256 amount, uint8 x, uint8 y);
     event CollectedHealth(address indexed player, uint256 amount);
-    // TODO: emmit winner, mint poap
-    event GameOver(address indexed player);
+    event GameOver(address indexed player); // TODO: emmit winner, mint POAP to loogie owner
 
     struct Field {
         address player;
@@ -83,8 +83,6 @@ contract Game is Ownable {
             spawnPoints[i].y = i < 2 ? 0 : height - 1;
         }
 
-        nextCurseBlockNumber = block.number + curseBlocksDuration;
-
         emit Restart(width, height, nextCurseBlockNumber);
     }
 
@@ -92,16 +90,11 @@ contract Game is Ownable {
         dropOnCollect = _dropOnCollect;
     }
 
-    function start() public onlyOwner {
-        gameOn = true;
-    }
-
-    function end() public onlyOwner {
-        gameOn = false;
-    }
-
     function restart() public onlyOwner {
         // TODO: increase gameId
+
+        // end old game
+        gameOn = false;
 
         for (uint256 i = 0; i < players.length; i++) {
             yourContract[players[i]] = address(0);
@@ -125,8 +118,6 @@ contract Game is Ownable {
         restartBlockNumber = block.number;
         nextCurseBlockNumber = restartBlockNumber + 10;
 
-        start();
-
         emit Restart(width, height, nextCurseBlockNumber);
     }
 
@@ -149,55 +140,49 @@ contract Game is Ownable {
     }
 
     function register(uint256 loogieId) public {
-        require(gameOn, "TOO LATE");
+        require(gameOn != true, "TOO LATE");
         if (requireContract) require(tx.origin != msg.sender, "NOT A CONTRACT");
         require(yourContract[tx.origin] == address(0), "Already registered");
         require(
             loogiesContract.ownerOf(loogieId) == tx.origin,
             "ONLY LOOGIES THAT YOU OWN"
         );
-        require(players.length <= 4, "MAX 4 LOOGIES REACHED");
+        require(players.length <= 3, "MAX 4 LOOGIES REACHED");
 
         players.push(tx.origin);
         yourContract[tx.origin] = msg.sender;
         health[tx.origin] = 100;
         loogies[tx.origin] = loogieId;
 
-        // Place loogie on the board, on a random corner
-        worldMatrix[0][0] = Field(tx.origin, false, 0);
-
-        // random number between 0 and spawnPointsCount
-        bytes32 predictableRandom = keccak256(
-            abi.encodePacked(
-                blockhash(block.number - 1),
-                msg.sender,
-                tx.origin,
-                address(this)
-            )
+        // set initial player position
+        Position memory playerPosition = Position(
+            spawnPoints[players.length - 1].x,
+            spawnPoints[players.length - 1].y
         );
+        yourPosition[tx.origin] = playerPosition;
 
-        uint8 randomSpawnPoint = uint8(predictableRandom[0]) % spawnPointsCount;
+        // Place player on the worldmatrix
+        worldMatrix[playerPosition.x][playerPosition.y].player = tx.origin;
 
-        Position memory spawnPoint = spawnPoints[randomSpawnPoint];
-
-        Field memory field = worldMatrix[spawnPoint.x][spawnPoint.y];
-        while (field.player != address(0)) {
-            randomSpawnPoint = (randomSpawnPoint + 1) % spawnPointsCount;
-            spawnPoint = spawnPoints[randomSpawnPoint];
+        // check if all players are registered and start the game
+        if (players.length == 4) {
+            gameOn = true;
         }
-
-        moveToCoord(spawnPoint.x, spawnPoint.y);
-
-        // drop health on the board
-        dropHealth(10);
 
         emit Register(
             tx.origin,
             msg.sender,
-            yourPosition[tx.origin].x,
-            yourPosition[tx.origin].y,
-            loogieId
+            playerPosition.x,
+            playerPosition.y,
+            loogieId,
+            gameOn
         );
+
+        // TODO: custom event for game start?
+        if (gameOn) {
+            // drop initial health
+            dropHealth(100);
+        }
     }
 
     function randomlyPlace() internal {
@@ -266,6 +251,7 @@ contract Game is Ownable {
 
     function move(MoveDirection direction) public {
         if (requireContract) require(tx.origin != msg.sender, "NOT A CONTRACT");
+        require(gameOn, "TOO LATE");
         (uint8 x, uint8 y) = getCoordinates(direction, tx.origin);
 
         moveToCoord(x, y);
@@ -279,7 +265,9 @@ contract Game is Ownable {
                 .cursed == false,
             "YOU ARE CURSED"
         );
-        require(lastAction[tx.origin] < block.number, "TOO EARLY");
+        require(lastAction[tx.origin] <= block.number, "TOO EARLY");
+
+        // calcular y hacer algo con el offset? ou não?
         lastAction[tx.origin] = block.number;
 
         // if (requireContract) require(tx.origin != msg.sender, "NOT A CONTRACT");
@@ -287,25 +275,19 @@ contract Game is Ownable {
         Field memory field = worldMatrix[x][y];
 
         require(field.player == address(0), "ANOTHER LOOGIE ON THIS POSITION");
-        bytes32 predictableRandom = keccak256(
-            abi.encodePacked(
-                blockhash(block.number - 1),
-                msg.sender,
-                address(this)
-            )
-        );
 
-        worldMatrix[x][y].player = tx.origin;
         worldMatrix[yourPosition[tx.origin].x][yourPosition[tx.origin].y]
             .player = address(0);
+        worldMatrix[x][y].player = tx.origin;
         yourPosition[tx.origin] = Position(x, y);
 
+        // auto collect helath
         if (field.healthAmountToCollect > 0) {
             collectHealth();
         }
 
         // reduce health when move
-        health[tx.origin] -= uint8(predictableRandom[0]) / attritionDivider;
+        health[tx.origin] -= attritionDivider;
 
         if (health[tx.origin] <= 0) {
             health[tx.origin] = 0;
@@ -316,7 +298,7 @@ contract Game is Ownable {
             worldMatrix[yourPosition[tx.origin].x][yourPosition[tx.origin].y]
                 .cursed
         ) {
-            health[tx.origin] -= 10;
+            health[tx.origin] -= attritionDivider;
         }
 
         emit Move(tx.origin, x, y, health[tx.origin]);
@@ -363,6 +345,8 @@ contract Game is Ownable {
                 address(this)
             )
         );
+
+        // TODO: drop only on empty field
 
         uint8 x = uint8(predictableRandom[0]) % width;
         uint8 y = uint8(predictableRandom[1]) % height;

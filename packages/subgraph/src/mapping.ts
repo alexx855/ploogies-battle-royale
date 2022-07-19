@@ -24,7 +24,7 @@ export function handleRestart(event: Restart): void {
   game.createdAt = event.block.timestamp;
   game.restartBlockNumber = event.block.number;
   game.nextCurseBlockNumber = event.params.nextCurseBlockNumber;
-  game.gameOn = true;
+  game.gameOn = false;
   game.save();
 
   for (let i = 0; i < event.params.width; i++) {
@@ -47,17 +47,18 @@ export function handleRestart(event: Restart): void {
 }
 
 export function handleRegister(event: Register): void {
-  // let gameString = event.params.txOrigin.toHexString();
-  // let game = Game.load(gameString);
-  // if (game) {
-  //   if (!game.players) {
-  //     game.players = [];
-  //   }
-  //   game.players.push(playerString);
-  //   game.save();
-  // }
-  let playerString = event.params.txOrigin.toHexString();
+  let gameString = "hackfs";
+  let game = Game.load(gameString);
+  if (!game) {
+    game = new Game(gameString);
+  }
 
+  game.gameOn = event.params.gameOn ? event.params.gameOn : false;
+  // check if all players are registered and start game
+
+  game.save();
+
+  let playerString = event.params.txOrigin.toHexString();
   let player = Player.load(playerString);
 
   if (player === null) {
@@ -75,6 +76,10 @@ export function handleRegister(event: Register): void {
   // player.lastAction = event.block.timestamp;
   // player.lastActionBlock = event.block.number;
   player.save();
+
+  // check if all players are registered and start game
+
+  game.save();
 
   const fieldId = event.params.x.toString() + "-" + event.params.y.toString();
   let field = WorldMatrix.load(fieldId);

@@ -116,10 +116,11 @@ function App(props) {
   const [injectedProvider, setInjectedProvider] = useState();
   const [address, setAddress] = useState();
   const [selectedNetwork, setSelectedNetwork] = useState(networkOptions[0]);
-  // const [nextBlockPercent, setNextBlockPercent] = useState(0);
+  const [currentBlock, setcurrentBlock] = useState(0);
   const location = useLocation();
 
   const targetNetwork = NETWORKS[selectedNetwork];
+  console.log("🚀 ~ file: App.jsx ~ line 123 ~ App ~ selectedNetwork", selectedNetwork);
 
   // 🔭 block explorer URL
   const blockExplorer = targetNetwork.blockExplorer;
@@ -196,10 +197,11 @@ function App(props) {
   const mainnetContracts = useContractLoader(mainnetProvider, contractConfig);
 
   // If you want to call a function on a new block
-  // useOnBlock(localProvider, () => {
-  //   console.log(`⛓ A new block is here: ${localProvider._lastBlockNumber}`);
-  //   setGameBlock(localProvider._lastBlockNumber);
-  // });
+  useOnBlock(mainnetProvider, block => {
+    console.log("🚀 ~ file: App.jsx ~ line 201 ~ useOnBlock ~ block", block);
+
+    // setGameBlock(localProvider._lastBlockNumber);
+  });
 
   // Then read your DAI balance like:
   const myMainnetDAIBalance = useContractReader(mainnetContracts, "DAI", "balanceOf", [
@@ -215,6 +217,24 @@ function App(props) {
 
   const WORLD_QUERY_GRAPHQL = `
   {
+    games {
+      id,
+      height,
+      width,
+      restartBlockNumber,
+      nextCurseBlockNumber,
+      gameOn,
+      createdAt
+    },
+    players {
+      id,
+      x,
+      y,
+      loogieId,
+      health,
+      lastAction,
+      lastActionBlock
+    },
     worldMatrixes {
       id
       x
@@ -233,8 +253,10 @@ function App(props) {
   `;
   const WORLD_QUERY_GQL = gql(WORLD_QUERY_GRAPHQL);
   const { loading, error, data, refetch, networkStatus } = useQuery(WORLD_QUERY_GQL, {
-    pollInterval: 2500,
+    pollInterval: 1000,
+    // pollInterval: 2500,
     fetchPolicy: "network-only", // Doesn't check cache before making a network request
+    // notifyOnNetworkStatusChange: true,
   });
 
   const [yourLoogiesBalance, setYourLoogiesBalance] = useState(0);
@@ -273,7 +295,7 @@ function App(props) {
   useEffect(() => {
     const updatePlayersData = async () => {
       if (readContracts.Game) {
-        // console.log("PARSE PLAYERS:::", worldMatrixes);
+        console.log("PARSE PLAYERS:::");
         try {
           let playerData = {};
 
@@ -283,10 +305,6 @@ function App(props) {
               const currentPosition = playersData[p];
               console.log("loading info for ", currentPosition);
               const tokenURI = await readContracts.Game.tokenURIOf(currentPosition.player.id);
-              console.log(
-                "🚀 ~ file: App.jsx ~ line 286 ~ updatePlayersData ~ currentPosition.player",
-                currentPosition.player,
-              );
               const jsonManifestString = Buffer.from(tokenURI.substring(29), "base64");
               const jsonManifest = JSON.parse(jsonManifestString);
               const info = {
@@ -396,6 +414,13 @@ function App(props) {
 
   const faucetAvailable = localProvider && localProvider.connection && targetNetwork.name.indexOf("local") !== -1;
 
+  // TODO: check for player lastAction
+  // TODO: move to hooks
+  const game = data?.games[0] || {};
+  const players = data?.players || [];
+  const playerCanMove = !(currentPlayer && currentPlayer?.health > 0 && game.gameOn); // TODO: add lastAction check
+  console.log("🚀 ~ file: App.jsx ~ line 420 ~ App ~ game.gameOn", game.gameOn);
+
   return (
     <div className="App">
       {/* ✏️ Edit the header and change the title to your project name */}
@@ -471,6 +496,7 @@ function App(props) {
         <Route exact path="/play">
           {/* if (loading) return <p>Loading...</p>; */}
 
+          {/* {networkStatus === NetworkStatus.refetch && `'Refetching!'`} */}
           {loading ? (
             <p>Loading graph...</p>
           ) : error ? (
@@ -478,8 +504,7 @@ function App(props) {
           ) : (
             <>
               <div style={{ position: "absolute", right: 50, top: 150, width: 600, zIndex: 10 }}>
-                {networkStatus === NetworkStatus.refetch && `'Refetching!'`}
-                {!currentPlayer && (
+                {!currentPlayer ? (
                   <div>
                     <div style={{ padding: 4 }}>
                       {loadingLoogies || (yourLoogies && yourLoogies.length > 0) ? (
@@ -523,6 +548,7 @@ function App(props) {
                                         <div>
                                           <span style={{ fontSize: 16, marginRight: 8 }}>{item.name}</span>
                                           <Button
+                                            disabled={game && game.gameOn}
                                             onClick={async () => {
                                               setLoadingLoogies(true);
                                               tx(writeContracts.Game.register(id)).then(async () => {
@@ -545,9 +571,6 @@ function App(props) {
                                           <span style={{ fontSize: 16, marginRight: 8 }}>
                                             {item.description || "TODO"}
                                           </span>
-                                        </div>
-                                        <div>
-                                          <span style={{ fontSize: 16, marginRight: 8 }}>{item.owner || "TODO"}</span>
                                         </div>
                                       </div>
                                     </Card>
@@ -615,7 +638,7 @@ function App(props) {
                       )}
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
 
               <div
@@ -655,7 +678,7 @@ function App(props) {
                   >
                     <Button
                       title="LEFT"
-                      disabled={!currentPlayer.health > 0}
+                      disabled={playerCanMove}
                       onClick={async () => {
                         tx(writeContracts.Game.move(2));
                       }}
@@ -664,7 +687,7 @@ function App(props) {
                     </Button>
                     <Button
                       title="RIGHT"
-                      disabled={!currentPlayer.health > 0}
+                      disabled={playerCanMove}
                       onClick={async () => {
                         tx(writeContracts.Game.move(3));
                       }}
@@ -673,7 +696,7 @@ function App(props) {
                     </Button>
                     <Button
                       title="UP"
-                      disabled={!currentPlayer.health > 0}
+                      disabled={playerCanMove}
                       onClick={async () => {
                         tx(writeContracts.Game.move(0));
                       }}
@@ -682,25 +705,13 @@ function App(props) {
                     </Button>
                     <Button
                       title="DOWN"
-                      disabled={!currentPlayer.health > 0}
+                      disabled={playerCanMove}
                       onClick={async () => {
                         tx(writeContracts.Game.move(1));
                       }}
                     >
                       DOWN
                     </Button>
-
-                    {/* 
-                    <Button
-                      title="Collect Health"
-                      disabled={!currentPlayer.health > 0}
-                      style={{ marginLeft: 10 }}
-                      onClick={async () => {
-                        tx(writeContracts.Game.collectHealth());
-                      }}
-                    >
-                      Collect Health
-                    </Button> */}
                   </div>
                 )}
 
@@ -714,6 +725,15 @@ function App(props) {
                   }}
                   to="/"
                 >
+                  {game.id && (
+                    <>
+                      {players.length < 4 ? (
+                        <h4 style={{ fontSize: "2em" }}>Waiting for {4 - players.length} players </h4>
+                      ) : null}
+                      {game.id} {game.gameOn} currentBlock:{currentBlock} restartBlockNumber:
+                      {game.restartBlockNumber} nextCurseBlockNumber:{game.nextCurseBlockNumber}
+                    </>
+                  )}
                   <Link
                     style={{
                       background: "rgba(0,0,0,0.5)",
@@ -728,8 +748,6 @@ function App(props) {
 
                 <div
                   style={{
-                    // transform: "scale(0.6,0.6)",
-                    // transform: "rotate(-45deg) scale(0.4,0.4)",
                     color: "#111111",
                     fontWeight: "bold",
                     width: width * squareW,
@@ -740,36 +758,30 @@ function App(props) {
                     marginTop: (-height * squareH) / 2,
                     marginLeft: (-width * squareW) / 2,
                     backgroundColor: "#b3e2f4",
+                    opacity: !game || !game.gameOn ? 0.5 : 1,
                   }}
                 >
                   {data.worldMatrixes.map((world, index) => {
-                    const { x, y, player, healthAmountToCollect } = world;
+                    const { x, y, player, healthAmountToCollect, cursed } = world;
 
                     const healthHere = parseInt(healthAmountToCollect);
-                    let fieldDisplay = "";
-                    let playerDisplay = "";
 
-                    if (healthHere > 0) {
-                      fieldDisplay = (
-                        <img
-                          alt="Health"
-                          src="Health_Full.svg"
-                          style={{
-                            width: "70%",
-                            height: "70%",
-                          }}
-                        />
-                      );
-                    }
-
-                    if (player) {
-                      playerDisplay = (
-                        <Tooltip title={player.address}>
-                          <div style={{ position: "relative", height: "100%", width: "100%" }}>
-                            {currentPlayer && currentPlayer.address.toLowerCase() === player.address?.toLowerCase() && (
-                              <Blockies address={player.address} size={8} scale={7.5} />
-                            )}
-
+                    return (
+                      <div
+                        key={`${x}-${y}`}
+                        style={{
+                          width: squareW,
+                          height: squareH,
+                          // padding: 1,
+                          position: "absolute",
+                          left: squareW * x,
+                          top: squareH * y,
+                          overflow: "visible",
+                          background: (x + y) % 2 ? "#BBBBBB" : "#EEEEEE",
+                        }}
+                      >
+                        {player && (
+                          <>
                             <span
                               style={{
                                 position: "absolute",
@@ -786,48 +798,57 @@ function App(props) {
                             >
                               {player.health}
                             </span>
-                            {/* TODO: add image to the graph */}
-                            {/* <img
-                            alt={player.address}
-                            src={player.image}
-                            style={{
-                              transform: "scale(3, 3)",
-                              width: "100%",
-                              height: "100%",
-                              top: -20,
-                              position: "absolute",
-                              left: 0,
-                              zIndex: 3,
-                            }}
-                          /> */}
-                          </div>
-                        </Tooltip>
-                      );
-                    }
-
-                    return (
-                      <div
-                        key={`${x}-${y}`}
-                        style={{
-                          width: squareW,
-                          height: squareH,
-                          padding: 1,
-                          position: "absolute",
-                          left: squareW * x,
-                          top: squareH * y,
-                          overflow: "visible",
-                        }}
-                      >
+                            {/* TODO: save image url to the graph ?? */}
+                            {playerData && playerData[player.id]?.image ? (
+                              <img
+                                alt={player.id}
+                                src={playerData[player.id].image}
+                                style={{
+                                  transform: "scale(3, 3)",
+                                  width: "100%",
+                                  height: "100%",
+                                  top: -20,
+                                  position: "absolute",
+                                  left: 0,
+                                  zIndex: 3,
+                                }}
+                              />
+                            ) : null}
+                          </>
+                        )}
                         <div
                           style={{
-                            position: "relative",
+                            position: "absolute",
                             height: "100%",
                             width: "100%",
-                            background: (x + y) % 2 ? "#BBBBBB" : "#EEEEEE",
+                            left: 0,
+                            top: 0,
+                            background:
+                              !cursed &&
+                              currentPlayer &&
+                              player &&
+                              currentPlayer.address?.toLowerCase() === player.id?.toLowerCase()
+                                ? "#00ff00"
+                                : cursed
+                                ? "#ff0000"
+                                : "transparent",
+                            boxSizing: "content-box",
+                            overflow: "hidden",
                           }}
                         >
-                          {playerDisplay ? playerDisplay : <span style={{ opacity: 0.4 }}>{"" + x + "," + y}</span>}
-                          <div style={{ opacity: 0.7, position: "absolute", left: 0, top: 0 }}>{fieldDisplay}</div>
+                          {/* <div style={{ opacity: 0.7, position: "absolute", left: 0, top: 0 }}> */}
+                          {healthHere ? (
+                            <img
+                              alt="Health"
+                              src="Health_Full.svg"
+                              style={{
+                                width: "70%",
+                                height: "70%",
+                              }}
+                            />
+                          ) : null}
+                          <span style={{ marginLeft: 3 }}>{"" + x + "," + y}</span>
+                          {/* </div> */}
                         </div>
                       </div>
                     );

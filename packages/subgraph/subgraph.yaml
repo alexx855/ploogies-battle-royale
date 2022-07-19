@@ -7,7 +7,7 @@ dataSources:
     network: localhost
     source:
       abi: Game
-      address: "0xdbC43Ba45381e02825b14322cDdd15eC4B3164E6"
+      address: "0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE"
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.5
@@ -22,7 +22,7 @@ dataSources:
       eventHandlers:
         - event: Restart(uint8,uint8,uint256)
           handler: handleRestart
-        - event: Register(indexed address,indexed address,uint8,uint8,uint256)
+        - event: Register(indexed address,indexed address,uint8,uint8,uint256,bool)
           handler: handleRegister
         - event: Move(indexed address,uint8,uint8,uint256)
           handler: handleMove
