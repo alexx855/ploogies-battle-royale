@@ -26,17 +26,34 @@ function Subgraph(props) {
 
   const EXAMPLE_GRAPHQL = `
   {
+    games {
+      id,
+      height,
+      width,
+      restartBlockNumber,
+      nextCurseBlockNumber,
+      gameOn,
+      createdAt
+    },
+    players {
+        id,
+        x,
+        y,
+        loogieId,
+        health,
+     	  lastAction,
+        lastActionBlock
+    },
     worldMatrixes {
-      id
-      x
-      y
+      id,
+      x,
+      y,
       healthAmountToCollect,
-      cursed
+      cursed,
       player {
-        id
-        address
-        loogieId
-        health
+        id,
+        loogieId,
+        health,
       }
     }
   }
@@ -45,15 +62,11 @@ function Subgraph(props) {
   const EXAMPLE_GQL = gql(EXAMPLE_GRAPHQL);
   const { loading, data } = useQuery(EXAMPLE_GQL, { pollInterval: 2500 });
 
-  const exampleColumns = [
+  const worldMatrixColumns = [
     {
       title: "id",
       dataIndex: "id",
       key: "id",
-      // render: record => {
-      //   console.log("🚀 ~ file: Subgraph.jsx ~ line 54 ~ Subgraph ~ record", record);
-      //   return `${record.x}-${record.y}`;
-      // },
     },
     {
       title: "cursed",
@@ -74,7 +87,7 @@ function Subgraph(props) {
       dataIndex: "player",
       key: "playerAddress",
       render: record =>
-        record ? <Address value={record.address} ensProvider={props.mainnetProvider} fontSize={16} /> : null,
+        record ? <Address value={record.id} ensProvider={props.mainnetProvider} fontSize={16} /> : null,
     },
     {
       title: "player health",
@@ -85,6 +98,68 @@ function Subgraph(props) {
         return record ? parseInt(record.health, 10) : null;
       },
     },
+  ];
+
+  const playerColumns = [
+    {
+      title: "id",
+      dataIndex: "id",
+      key: "id",
+      render: record => (record ? <Address value={record} ensProvider={props.mainnetProvider} fontSize={16} /> : null),
+    },
+    {
+      title: "health",
+      dataIndex: "health",
+      key: "health",
+    },
+    {
+      title: "x",
+      dataIndex: "x",
+      key: "x",
+    },
+    {
+      title: "y",
+      dataIndex: "y",
+      key: "y",
+    },
+  ];
+
+  const gameColumns = [
+    {
+      title: "id",
+      dataIndex: "id",
+      key: "id",
+    },
+    {
+      title: "height",
+      dataIndex: "height",
+      key: "height",
+    },
+    {
+      title: "width",
+      dataIndex: "width",
+      key: "width",
+    },
+    {
+      title: "restart block number",
+      dataIndex: "restartBlockNumber",
+      key: "restartBlockNumber",
+    },
+    {
+      title: "next curse block number",
+      dataIndex: "nextCurseBlockNumber",
+      key: "nextCurseBlockNumber",
+    },
+    // {
+    //   title: "gameOn",
+    //   dataIndex: "gameOn",
+    //   key: "gameOn",
+    // },
+    // {
+    //   title: "createdAt",
+    //   dataIndex: "createdAt",
+    //   key: "createdAt",
+    // },
   ];
 
   const deployWarning = (
@@ -185,7 +260,11 @@ function Subgraph(props) {
 
       <div style={{ width: "100%", paddingBottom: 64 }}>
         {data ? (
-          <Table dataSource={data.worldMatrixes} columns={exampleColumns} rowKey="id" />
+          <>
+            <Table dataSource={data.games} columns={gameColumns} rowKey="id" />
+            <Table dataSource={data.players} columns={playerColumns} rowKey="id" />
+            <Table dataSource={data.worldMatrixes} columns={worldMatrixColumns} rowKey="id" />
+          </>
         ) : (
           <Typography>{loading ? "Loading..." : deployWarning}</Typography>
         )}

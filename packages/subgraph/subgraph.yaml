@@ -7,26 +7,31 @@ dataSources:
     network: localhost
     source:
       abi: Game
-      address: "0x202CCe504e04bEd6fC0521238dDf04Bc9E8E15aB"
+      address: "0xdbC43Ba45381e02825b14322cDdd15eC4B3164E6"
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.5
       language: wasm/assemblyscript
       entities:
+        - Game
         - WorldMatrix
         - Player
       abis:
         - name: Game
           file: ./abis/localhost_Game.json
       eventHandlers:
-        - event: Restart(uint8,uint8)
+        - event: Restart(uint8,uint8,uint256)
           handler: handleRestart
         - event: Register(indexed address,indexed address,uint8,uint8,uint256)
           handler: handleRegister
         - event: Move(indexed address,uint8,uint8,uint256)
           handler: handleMove
+        - event: NewCurse(uint256)
+          handler: handleNewCurse
+        - event: NewHealthDrop(uint256,uint8,uint8)
+          handler: handleHealthNewDrop
         - event: CollectedHealth(indexed address,uint256)
           handler: handleCollectedHealth
-        - event: NewDrop(indexed bool,uint256,uint8,uint8)
-          handler: handleNewDrop
+        - event: GameOver(indexed address)
+          handler: handleGameOver
       file: ./src/mapping.ts

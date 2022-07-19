@@ -24,14 +24,6 @@ contract Caller is Ownable {
         registry.move(direction);
     }
 
-    // function collectTokens() public onlyOwner {
-    //     registry.collectTokens();
-    // }
-
-    function collectHealth() public onlyOwner {
-        registry.collectHealth();
-    }
-
     function update(address myNewContract) public onlyOwner {
         registry.update(myNewContract);
     }

@@ -32,8 +32,7 @@ import deployedContracts from "./contracts/hardhat_contracts.json";
 import { Transactor, Web3ModalSetup } from "./helpers";
 import { Home, ExampleUI, Hints, Subgraph } from "./views";
 import { useStaticJsonRPC } from "./hooks";
-import { gql, useQuery } from "@apollo/client";
-
+import { gql, useQuery, NetworkStatus } from "@apollo/client";
 const fetchLoogies = async (address, readContracts) => {
   const loogies = [];
   let loogiesBalance = 0;
@@ -131,7 +130,7 @@ function App(props) {
   ]);
   const mainnetProvider = useStaticJsonRPC(providers);
 
-  if (DEBUG) console.log(`Using ${selectedNetwork} network`);
+  // if (DEBUG) console.log(`Using ${selectedNetwork} network`);
 
   // 🛰 providers
   if (DEBUG) console.log("📡 Connecting to Mainnet Ethereum");
@@ -207,7 +206,7 @@ function App(props) {
     "0x34aA3F359A9D614239015126635CE7732c18fDF3",
   ]);
 
-  const { gameBlock, setGameBlock } = useState(10);
+  // const { gameBlock, setGameBlock } = useState(10);
 
   // keep track of a variable from the contract in the local React state:
   const purpose = useContractReader(readContracts, "YourContract", "purpose");
@@ -224,15 +223,19 @@ function App(props) {
       cursed
       player {
         id
-        address
         loogieId
         health
+        lastAction
+        lastActionBlock
       }
     }
   }
   `;
   const WORLD_QUERY_GQL = gql(WORLD_QUERY_GRAPHQL);
-  const { loading, error, data } = useQuery(WORLD_QUERY_GQL, { pollInterval: 10000 });
+  const { loading, error, data, refetch, networkStatus } = useQuery(WORLD_QUERY_GQL, {
+    pollInterval: 2500,
+    fetchPolicy: "network-only", // Doesn't check cache before making a network request
+  });
 
   const [yourLoogiesBalance, setYourLoogiesBalance] = useState(0);
   const [yourLoogies, setYourLoogies] = useState();
@@ -275,11 +278,15 @@ function App(props) {
           let playerData = {};
 
           if (data && data.worldMatrixes?.length > 0) {
-            const playersData = data.worldMatrixes.filter(world => world.player && world.player.address);
+            const playersData = data.worldMatrixes.filter(world => world.player);
             for (let p in playersData) {
               const currentPosition = playersData[p];
               console.log("loading info for ", currentPosition);
-              const tokenURI = await readContracts.Game.tokenURIOf(currentPosition.player.address);
+              const tokenURI = await readContracts.Game.tokenURIOf(currentPosition.player.id);
+              console.log(
+                "🚀 ~ file: App.jsx ~ line 286 ~ updatePlayersData ~ currentPosition.player",
+                currentPosition.player,
+              );
               const jsonManifestString = Buffer.from(tokenURI.substring(29), "base64");
               const jsonManifest = JSON.parse(jsonManifestString);
               const info = {
@@ -288,10 +295,10 @@ function App(props) {
                 //contract: await readContracts.Game.yourContract(worldPlayerData.data[p]),
                 image: jsonManifest.image,
                 gold: parseInt(currentPosition.player.token),
-                address: currentPosition.player.address,
+                address: currentPosition.player.id,
               };
-              playerData[currentPosition.player.address] = info;
-              if (address && currentPosition.player.address.toLowerCase() === address.toLowerCase()) {
+              playerData[currentPosition.player.id] = info;
+              if (address && currentPosition.player.id.toLowerCase() === address.toLowerCase()) {
                 setCurrentPlayer(info);
               }
             }
@@ -463,6 +470,7 @@ function App(props) {
 
         <Route exact path="/play">
           {/* if (loading) return <p>Loading...</p>; */}
+
           {loading ? (
             <p>Loading graph...</p>
           ) : error ? (
@@ -470,6 +478,7 @@ function App(props) {
           ) : (
             <>
               <div style={{ position: "absolute", right: 50, top: 150, width: 600, zIndex: 10 }}>
+                {networkStatus === NetworkStatus.refetch && `'Refetching!'`}
                 {!currentPlayer && (
                   <div>
                     <div style={{ padding: 4 }}>
@@ -518,6 +527,8 @@ function App(props) {
                                               setLoadingLoogies(true);
                                               tx(writeContracts.Game.register(id)).then(async () => {
                                                 if (DEBUG) console.log("Updating active player...");
+                                                refetch();
+                                                // setLoadingLoogies(false);
                                               });
                                             }}
                                           >
@@ -527,6 +538,18 @@ function App(props) {
                                       }
                                     >
                                       <img alt={item.id} src={item.image} width="240" />
+
+                                      {/* TODO: show games played, wins and loses */}
+                                      <div style={{ padding: 4 }}>
+                                        <div>
+                                          <span style={{ fontSize: 16, marginRight: 8 }}>
+                                            {item.description || "TODO"}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <span style={{ fontSize: 16, marginRight: 8 }}>{item.owner || "TODO"}</span>
+                                        </div>
+                                      </div>
                                     </Card>
                                   </List.Item>
                                 );

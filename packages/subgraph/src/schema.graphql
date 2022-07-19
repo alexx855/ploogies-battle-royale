@@ -2,11 +2,10 @@ type Game @entity {
   id: ID!
   height: Int!
   width: Int!
-  restartBlockNumber: Int!
-  blockNumber: Int!
+  restartBlockNumber: BigInt!
+  nextCurseBlockNumber: BigInt!
   gameOn: Boolean!
-  players: [Player!]
-  worldMatrixes: [WorldMatrix!]
+  createdAt: BigInt!
 }
 
 type WorldMatrix @entity {
@@ -22,9 +21,10 @@ type Player @entity {
   id: ID!
   x: Int!
   y: Int!
-  address: Bytes!
   loogieId: BigInt!
   health: BigInt!
   createdAt: BigInt!
   transactionHash: String!
+  lastAction: BigInt
+  lastActionBlock: BigInt
 }
