@@ -212,41 +212,46 @@ function App(props) {
 
   // keep track of a variable from the contract in the local React state:
   const purpose = useContractReader(readContracts, "YourContract", "purpose");
-  const width = 6;
-  const height = 6;
+  const width = 7; // TODO: get from contract
+  const height = 7; // TODO: get from contract
 
   const WORLD_QUERY_GRAPHQL = `
   {
     games {
-      id,
+      ticker,
       height,
       width,
-      restartBlockNumber,
-      nextCurseBlockNumber,
+      restart,
+      nextCurse,
       gameOn,
-      createdAt
+      createdAt,
+      curseCount
     },
     players {
+        id,
+        x,
+        y,
+        loogieId,
+        health,
+        lastActionTick,
+        lastActionBlock,
+        lastActionTime
+    },
+    worldMatrixes {
       id,
       x,
       y,
-      loogieId,
-      health,
-      lastAction,
-      lastActionBlock
-    },
-    worldMatrixes {
-      id
-      x
-      y
       healthAmountToCollect,
-      cursed
+      cursed,
       player {
-        id
-        loogieId
-        health
-        lastAction
-        lastActionBlock
+        id,
+        x,
+        y,
+        loogieId,
+        health,
+        lastActionTick,
+        lastActionBlock,
+        lastActionTime
       }
     }
   }
@@ -307,14 +312,23 @@ function App(props) {
               const tokenURI = await readContracts.Game.tokenURIOf(currentPosition.player.id);
               const jsonManifestString = Buffer.from(tokenURI.substring(29), "base64");
               const jsonManifest = JSON.parse(jsonManifestString);
+              console.log(
+                "🚀 ~ file: App.jsx ~ line 313 ~ updatePlayersData ~ currentPosition.lastAction",
+                currentPosition.player,
+              );
+
               const info = {
                 health: parseInt(currentPosition.player.health),
                 position: { x: currentPosition.x, y: currentPosition.y },
+                lastActionTick: parseInt(currentPosition.player.lastActionTick),
+                lastActionBlock: parseInt(currentPosition.player.lastActionBlock),
+                lastActionTime: parseInt(currentPosition.player.lastActionTime),
                 //contract: await readContracts.Game.yourContract(worldPlayerData.data[p]),
                 image: jsonManifest.image,
                 gold: parseInt(currentPosition.player.token),
                 address: currentPosition.player.id,
               };
+              console.log("🚀 ~ file: App.jsx ~ line 331 ~ updatePlayersData ~ info", info);
               playerData[currentPosition.player.id] = info;
               if (address && currentPosition.player.id.toLowerCase() === address.toLowerCase()) {
                 setCurrentPlayer(info);
@@ -414,11 +428,14 @@ function App(props) {
 
   const faucetAvailable = localProvider && localProvider.connection && targetNetwork.name.indexOf("local") !== -1;
 
-  // TODO: check for player lastAction
   // TODO: move to hooks
   const game = data?.games[0] || {};
   const players = data?.players || [];
-  const playerCanMove = !(currentPlayer && currentPlayer?.health > 0 && game.gameOn); // TODO: add lastAction check
+  const playerCanMove = !(
+    (currentPlayer && currentPlayer?.health > 0 && game.gameOn)
+    // && data.worldMatrixes[currentPlayer.position.x][currentPlayer.position.y].cursed === false
+    // && game.ticker > currentPlayer?.lastAction
+  ); // TODO: add lastAction check
   console.log("🚀 ~ file: App.jsx ~ line 420 ~ App ~ game.gameOn", game.gameOn);
 
   return (
@@ -504,7 +521,7 @@ function App(props) {
           ) : (
             <>
               <div style={{ position: "absolute", right: 50, top: 150, width: 600, zIndex: 10 }}>
-                {!currentPlayer ? (
+                {!currentPlayer && !game?.gameOn ? (
                   <div>
                     <div style={{ padding: 4 }}>
                       {loadingLoogies || (yourLoogies && yourLoogies.length > 0) ? (
@@ -666,55 +683,6 @@ function App(props) {
                   showInfo={false}
                 /> */}
 
-                {currentPlayer && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: 10,
-                      top: 10,
-                      zIndex: 11,
-                    }}
-                    to="/"
-                  >
-                    <Button
-                      title="LEFT"
-                      disabled={playerCanMove}
-                      onClick={async () => {
-                        tx(writeContracts.Game.move(2));
-                      }}
-                    >
-                      LEFT
-                    </Button>
-                    <Button
-                      title="RIGHT"
-                      disabled={playerCanMove}
-                      onClick={async () => {
-                        tx(writeContracts.Game.move(3));
-                      }}
-                    >
-                      RIGHT
-                    </Button>
-                    <Button
-                      title="UP"
-                      disabled={playerCanMove}
-                      onClick={async () => {
-                        tx(writeContracts.Game.move(0));
-                      }}
-                    >
-                      UP
-                    </Button>
-                    <Button
-                      title="DOWN"
-                      disabled={playerCanMove}
-                      onClick={async () => {
-                        tx(writeContracts.Game.move(1));
-                      }}
-                    >
-                      DOWN
-                    </Button>
-                  </div>
-                )}
-
                 <div
                   style={{
                     position: "absolute",
@@ -730,8 +698,6 @@ function App(props) {
                       {players.length < 4 ? (
                         <h4 style={{ fontSize: "2em" }}>Waiting for {4 - players.length} players </h4>
                       ) : null}
-                      {game.id} {game.gameOn} currentBlock:{currentBlock} restartBlockNumber:
-                      {game.restartBlockNumber} nextCurseBlockNumber:{game.nextCurseBlockNumber}
                     </>
                   )}
                   <Link
@@ -761,8 +727,107 @@ function App(props) {
                     opacity: !game || !game.gameOn ? 0.5 : 1,
                   }}
                 >
+                  {/* game data */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      backgroundColor: "#b3e2f4",
+                      top: "50px",
+                      left: "-270px",
+                      width: "270px",
+                      zIndex: 11,
+                    }}
+                  >
+                    <h4
+                      style={{
+                        width: "100%",
+                        textAlign: "left",
+                        paddingLeft: "10px",
+                      }}
+                    >
+                      Game
+                    </h4>
+                    <ul
+                      style={{
+                        width: "100%",
+                        textAlign: "left",
+                      }}
+                    >
+                      <li>Playing: {`${game.gameOn}`}</li>
+                      <li>Winner: {`${game.winner}`}</li>
+                      <li>Ticker: {game.ticker}</li>
+                      <li>NextCurse: {game.nextCurse}</li>
+                      {/* <li>RestartBlockNumber: {game.restart}</li> */}
+                    </ul>
+                    {/* current player data */}
+                    {currentPlayer ? (
+                      <>
+                        <h4
+                          style={{
+                            width: "100%",
+                            textAlign: "left",
+                            paddingLeft: "10px",
+                          }}
+                        >
+                          Player
+                        </h4>
+                        <ul
+                          style={{
+                            width: "100%",
+                            textAlign: "left",
+                          }}
+                        >
+                          <li>Health: {currentPlayer.health} </li>
+                          <li>Cursed: {`${currentPlayer.cursed}`}</li>
+                          <li>Position: {`${currentPlayer.position.x},${currentPlayer.position.y}`}</li>
+                          <li>LastActionTick: {currentPlayer.lastActionTick} </li>
+                          <li>LastActionTime: {currentPlayer.lastActionTime} </li>
+                          <li>LastActionBlock: {currentPlayer.lastActionBlock}</li>
+                        </ul>
+
+                        <Button
+                          title="LEFT"
+                          disabled={playerCanMove}
+                          onClick={async () => {
+                            tx(writeContracts.Game.move(2));
+                          }}
+                        >
+                          LEFT
+                        </Button>
+                        <Button
+                          title="RIGHT"
+                          disabled={playerCanMove}
+                          onClick={async () => {
+                            tx(writeContracts.Game.move(3));
+                          }}
+                        >
+                          RIGHT
+                        </Button>
+                        <Button
+                          title="UP"
+                          disabled={playerCanMove}
+                          onClick={async () => {
+                            tx(writeContracts.Game.move(0));
+                          }}
+                        >
+                          UP
+                        </Button>
+                        <Button
+                          title="DOWN"
+                          disabled={playerCanMove}
+                          onClick={async () => {
+                            tx(writeContracts.Game.move(1));
+                          }}
+                        >
+                          DOWN
+                        </Button>
+                      </>
+                    ) : null}
+                  </div>
+
                   {data.worldMatrixes.map((world, index) => {
                     const { x, y, player, healthAmountToCollect, cursed } = world;
+                    console.log("🚀 ~ file: App.jsx ~ line 766 ~ {data.worldMatrixes.map ~ cursed", cursed);
 
                     const healthHere = parseInt(healthAmountToCollect);
 
@@ -782,22 +847,24 @@ function App(props) {
                       >
                         {player && (
                           <>
-                            <span
-                              style={{
-                                position: "absolute",
-                                bottom: 0,
-                                left: 0,
-                                textAlign: "center",
-                                width: "100%",
-                                fontSize: "1.5rem",
-                                color: "red",
-                                fontWeight: "bold",
-                                textShadow: "0 0 5px black",
-                                zIndex: 4,
-                              }}
-                            >
-                              {player.health}
-                            </span>
+                            <Tooltip title={`${player.id}  `}>
+                              <span
+                                style={{
+                                  position: "absolute",
+                                  bottom: 0,
+                                  left: 0,
+                                  textAlign: "center",
+                                  width: "100%",
+                                  fontSize: "1.5rem",
+                                  color: "red",
+                                  fontWeight: "bold",
+                                  textShadow: "0 0 5px black",
+                                  zIndex: 4,
+                                }}
+                              >
+                                {player.health}
+                              </span>
+                            </Tooltip>
                             {/* TODO: save image url to the graph ?? */}
                             {playerData && playerData[player.id]?.image ? (
                               <img
@@ -823,29 +890,30 @@ function App(props) {
                             width: "100%",
                             left: 0,
                             top: 0,
-                            background:
-                              !cursed &&
-                              currentPlayer &&
-                              player &&
-                              currentPlayer.address?.toLowerCase() === player.id?.toLowerCase()
-                                ? "#00ff00"
-                                : cursed
-                                ? "#ff0000"
-                                : "transparent",
+                            zIndex: 2,
+                            background: cursed
+                              ? "red"
+                              : currentPlayer &&
+                                player &&
+                                currentPlayer.address?.toLowerCase() === player.id?.toLowerCase()
+                              ? "#00ff00"
+                              : "transparent",
                             boxSizing: "content-box",
                             overflow: "hidden",
                           }}
                         >
                           {/* <div style={{ opacity: 0.7, position: "absolute", left: 0, top: 0 }}> */}
                           {healthHere ? (
-                            <img
-                              alt="Health"
-                              src="Health_Full.svg"
-                              style={{
-                                width: "70%",
-                                height: "70%",
-                              }}
-                            />
+                            <Tooltip title={`${healthHere} health here`}>
+                              <img
+                                alt="Health"
+                                src="Health_Full.svg"
+                                style={{
+                                  width: "70%",
+                                  height: "70%",
+                                }}
+                              />
+                            </Tooltip>
                           ) : null}
                           <span style={{ marginLeft: 3 }}>{"" + x + "," + y}</span>
                           {/* </div> */}

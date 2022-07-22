@@ -27,13 +27,14 @@ function Subgraph(props) {
   const EXAMPLE_GRAPHQL = `
   {
     games {
-      id,
+      ticker,
       height,
       width,
-      restartBlockNumber,
-      nextCurseBlockNumber,
+      restart,
+      nextCurse,
       gameOn,
-      createdAt
+      createdAt,
+      curseCount
     },
     players {
         id,
@@ -41,8 +42,9 @@ function Subgraph(props) {
         y,
         loogieId,
         health,
-     	  lastAction,
-        lastActionBlock
+        lastActionTick,
+        lastActionBlock,
+        lastActionTime
     },
     worldMatrixes {
       id,
@@ -52,8 +54,13 @@ function Subgraph(props) {
       cursed,
       player {
         id,
+        x,
+        y,
         loogieId,
         health,
+        lastActionTick,
+        lastActionBlock,
+        lastActionTime
       }
     }
   }
@@ -148,13 +155,13 @@ function Subgraph(props) {
     },
     {
       title: "restart block number",
-      dataIndex: "restartBlockNumber",
-      key: "restartBlockNumber",
+      dataIndex: "restart",
+      key: "restart",
     },
     {
       title: "next curse block number",
-      dataIndex: "nextCurseBlockNumber",
-      key: "nextCurseBlockNumber",
+      dataIndex: "nextCurse",
+      key: "nextCurse",
     },
     // {
     //   title: "gameOn",
