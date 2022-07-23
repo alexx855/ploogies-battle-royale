@@ -1,31 +1,25 @@
-# LoogieBoard Game
+# ⚔️ Ploogies Battle Royale
 
-[LoogieBoard Game](https://board.fancyloogies.com)
+A Loogies battle royale web3 game on Polygon, the goal is to survive as long as you can while colleting items and battling other players on the board to win a crown POAP.
 
-![loogieboard](https://user-images.githubusercontent.com/466652/171219750-d6614daf-c71b-4ec0-acb0-cd663fbc6dca.png)
+# 📖 Description
 
-Forked from the Amsterdam Game from https://github.com/andrejrakic/scaffold-eth/tree/austins
+An online multiplayer web3 game on the Polygon network that blends last-man-standing gameplay with the survival element. The game start when all 4 PLoogies joins a board. Ploogies are distributed at every corner by registration order untill the board is full. Then the game starts, users can move to the side fields 1 time every 10 secs by clicking the UI buttons. On every player move the board state is updated and the following logic is applied: 1) The external fields of the board turns red  every 10 turns killing all player on these positions. 2) Moving a Loogie has a cost of x helath. 3) if there are more than 1 PLoogie on the same position,  they fight  and the one with the higher health (if they have the same health will be the caller) steal the health from the other PLoogie). The games ends when all loogies are dead or when only 1 player still alive a POAP is minted to the winner.
 
-Some changes to the Game contract:
+# 🏄‍♂️ Quick Start
 
-- Register with a FancyLoogie
-- Use LoogieCoin as Gold
-- Drop Health or Gold when someone collect one of them
+Prerequisites: plus [Yarn](https://classic.yarnpkg.com/en/docs/install/) and [Git](https://git-scm.com/downloads)
 
-Added a subgraph to avoid event listeners:
-
-- Now one subgraph entity represent each board field
-- Another entity for each player
+> clone/fork 🏗 scaffold-eth:
 
 ```bash
-git clone https://github.com/scaffold-eth/scaffold-eth loogie-board
+git clone https://github.com/alexx855/ploogies-battle-royale.git
 ```
 
 > install and start your 👷‍ Hardhat chain:
 
 ```bash
-cd loogie-board
-git checkout loogie-board
+cd ploogies-battle-royale
 yarn install
 yarn chain
 ```
@@ -33,21 +27,14 @@ yarn chain
 > in a second terminal window, start your 📱 frontend:
 
 ```bash
-cd loogie-board
+cd ploogies-battle-royale
 yarn start
 ```
 
 > in a third terminal window, 🛰 deploy your contract:
 
 ```bash
-cd loogie-board
+cd ploogies-battle-royale
 yarn deploy
 ```
 
-🔏 Edit your smart contracts are in `packages/hardhat/contracts`
-
-📝 Edit your frontend `App.jsx` in `packages/react-app/src`
-
-💼 Edit your deployment scripts in `packages/hardhat/deploy`
-
-📱 Open http://localhost:3000 to see the app
